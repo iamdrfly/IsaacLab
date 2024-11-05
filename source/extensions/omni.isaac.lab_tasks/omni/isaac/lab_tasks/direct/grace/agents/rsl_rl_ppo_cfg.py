@@ -13,11 +13,11 @@ from omni.isaac.lab_tasks.utils.wrappers.rsl_rl import (
 
 
 @configclass
-class AnymalCFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class GraceFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 500
     save_interval = 50
-    experiment_name = "anymal_c_flat_direct"
+    experiment_name = "grace_flat_direct"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
@@ -42,11 +42,11 @@ class AnymalCFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class AnymalCRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class GraceRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 1500
     save_interval = 50
-    experiment_name = "anymal_c_rough_direct"
+    experiment_name = "grace_rough_direct"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
