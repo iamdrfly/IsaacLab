@@ -28,7 +28,7 @@ class GraceEnv(DirectRLEnv):
             self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device
         )
 
-        # X/Y linear velocity and yaw angular velocity commands
+        # X/Y linear velocity and yaw angular velocity commands ------------------------------------------------------> da cambiare per POS
         self._commands = torch.zeros(self.num_envs, 3, device=self.device)
 
         # Logging
@@ -51,6 +51,7 @@ class GraceEnv(DirectRLEnv):
         self._base_id, _ = self._contact_sensor.find_bodies("base")
         self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
         self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*HFE")
+        self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT$).*'])
 
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
@@ -73,10 +74,10 @@ class GraceEnv(DirectRLEnv):
 
     def _pre_physics_step(self, actions: torch.Tensor):
         self._actions = actions.clone()
-        self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos
+        self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
 
     def _apply_action(self):
-        self._robot.set_joint_position_target(self._processed_actions)
+        self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
 
     def _get_observations(self) -> dict:
         self._previous_actions = self._actions.clone()
