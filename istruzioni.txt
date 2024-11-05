@@ -1,0 +1,33 @@
+Come Creare Fork
+da git fai fork
+cloni il tuo fork
+
+git remote add upstream http ... della repo originale
+
+verifica dove sta puntando git
+git remote -v
+
+origin deve essere la tua personale copia ottenuta dal fork e deve avere fetch e push
+
+upstream deve puntare al padre (quello da cui ha forkato) e deve avere solo upstream
+
+se ha anche push, per toglierlo:
+
+git remote set-url --push upstream NO_PUSH
+
+
+
+AGGIORNAMNETO DA ISAACLAB
+
+recupero modifiche da IsaacLab
+git fetch upstream
+
+Unisci le modifiche nel tuo branch principale locale:
+git checkout main
+git merge upstream/main
+
+Torna al tuo branch di lavoro:
+git checkout nome_del_tuo_branch
+
+Unisci le modifiche dal tuo branch principale nel tuo branch di lavoro:
+git merge main
