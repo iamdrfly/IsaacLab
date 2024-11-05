@@ -13,7 +13,7 @@ from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
 
-from .anymal_c_env_cfg import AnymalCFlatEnvCfg, AnymalCRoughEnvCfg
+from .grace_env_cfg import GraceFlatEnvCfg, GraceRoughEnvCfg
 
 
 class AnymalCEnv(DirectRLEnv):
