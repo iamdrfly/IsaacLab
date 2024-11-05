@@ -14,6 +14,7 @@ from omni.isaac.lab.sensors import RayCasterCfg
 from omni.isaac.lab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 from .velodyne import VELODYNE_VLP_16_RAYCASTER_CFG
+from omni.isaac.lab.utils.pathfinder.pathfinder import find_absolute_path
 
 ##
 # Configuration - Actuators.
@@ -27,8 +28,6 @@ from .velodyne import VELODYNE_VLP_16_RAYCASTER_CFG
 #     stiffness={".*": 40.0},
 #     damping={".*": 5.0},
 # )
-"""Configuration for GRACE with DC actuator model."""
-
 
 # GRACE_LSTM_ACTUATOR_CFG = ActuatorNetLSTMCfg(
 #     joint_names_expr=[".*HAA", ".*HFE", ".*KFE"],
@@ -99,7 +98,7 @@ GRACE_SPHERICAL_CFG = DCMotorCfg(
 ##
 GRACE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/ANYbotics/ANYmal-D/anymal_d.usd",
+        usd_path= find_absolute_path("grace_with_ball_fingers.usd"),
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
