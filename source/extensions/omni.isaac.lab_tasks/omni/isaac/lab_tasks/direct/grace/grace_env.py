@@ -49,9 +49,13 @@ class GraceEnv(DirectRLEnv):
         }
         # Get specific body indices
         self._base_id, _ = self._contact_sensor.find_bodies("base")
+        self._lr_feet_ids, _ = self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")
+        self._rf_feet_ids, _ = self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")
+        self._lf_feet_ids, _ = self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")
+        self._rr_feet_ids, _ = self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")
         self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
         self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*HFE")
-        self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT$).*'])
+        self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT.*$).*'])
 
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)

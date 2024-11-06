@@ -555,6 +555,7 @@ class SimulationContext(_SimulationContext):
         # obtain the physics scene api
         physics_scene: UsdPhysics.Scene = self._physics_context._physics_scene
         physx_scene_api: PhysxSchema.PhysxSceneAPI = self._physics_context._physx_scene_api
+
         # assert that scene api is not None
         if physx_scene_api is None:
             raise RuntimeError("Physics scene API is None! Please create the scene first.")
