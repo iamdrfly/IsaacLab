@@ -49,11 +49,15 @@ class GraceEnv(DirectRLEnv):
         }
         # Get specific body indices
         self._base_id, _ = self._contact_sensor.find_bodies("base")
-        self._lr_feet_ids, _ = self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")
-        self._rf_feet_ids, _ = self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")
-        self._lf_feet_ids, _ = self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")
-        self._rr_feet_ids, _ = self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")
-        self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
+
+        self._foot_ids = {'lr': self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")[0],
+                          'rf': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
+                          'lf': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
+                          'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
+        # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
+
+        self._min_finger_contacts = 1
+
         self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*HFE")
         self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT.*$).*'])
 
@@ -110,6 +114,37 @@ class GraceEnv(DirectRLEnv):
         observations = {"policy": obs}
         return observations
 
+    def _compute_foot_contact(self, contact_sensor, step_dt, foot_ids, min_contacts=2):
+        """
+        Calcola se ciascun piede è in contatto in base a un numero minimo di punti di contatto attivi.
+
+        Args:
+        - contact_sensor: il sensore di contatto che fornisce informazioni sul primo contatto e sul tempo in aria.
+        - step_dt: intervallo di tempo tra i passi della simulazione.
+        - foot_ids: dizionario con ID delle dita per ciascun piede. Es: {'lr': [0,1,2], 'rf': [3,4,5], ...}
+        - min_contacts: numero minimo di punti di contatto per considerare un piede "in contatto".
+
+        Returns:
+        - first_contacts: dizionario con `first_contact` per ciascun piede.
+        - last_air_times: dizionario con `last_air_time` per ciascun piede.
+        """
+
+        first_contacts = {}
+        last_air_times = {}
+
+        for foot, toe_ids in foot_ids.items():
+            # Calcola il primo contatto per ciascun dito del piede
+            first_contact_per_toe = contact_sensor.compute_first_contact(step_dt)[:, toe_ids]  # [n_envs, num_toes]
+
+            # Conta il numero di dita in contatto per ciascun piede e verifica se supera il minimo richiesto
+            first_contacts[foot] = (torch.sum(first_contact_per_toe, dim=1) >= min_contacts).float()  # [n_envs]
+
+            # Calcola l'ultimo tempo in aria tra le dita del piede (massimo tra le dita)
+            last_air_time_per_toe = contact_sensor.data.last_air_time[:, toe_ids]  # [n_envs, num_toes]
+            last_air_times[foot] = torch.max(last_air_time_per_toe, dim=1).values  # [n_envs]
+
+        return first_contacts, last_air_times
+
     def _get_rewards(self) -> torch.Tensor:
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
@@ -127,12 +162,19 @@ class GraceEnv(DirectRLEnv):
         joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
         # action rate
         action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
-        # feet air time
-        first_contact = self._contact_sensor.compute_first_contact(self.step_dt)[:, self._feet_ids]
-        last_air_time = self._contact_sensor.data.last_air_time[:, self._feet_ids]
-        air_time = torch.sum((last_air_time - 0.5) * first_contact, dim=1) * (
-            torch.norm(self._commands[:, :2], dim=1) > 0.1
-        )
+
+
+        # first_contact = self._contact_sensor.compute_first_contact(self.step_dt)[:, self._feet_ids]
+        # last_air_time = self._contact_sensor.data.last_air_time[:, self._feet_ids]
+        # air_time = torch.sum((last_air_time - 0.5) * first_contact, dim=1) * (torch.norm(self._commands[:, :2], dim=1) > 0.1)
+        first_contacts, last_air_times = self._compute_foot_contact(self._contact_sensor, self.step_dt, self._foot_ids, min_contacts=self._min_finger_contacts)
+        air_time = 0
+        for foot in ['lr', 'rf', 'lf', 'rr']:
+            air_time += (last_air_times[foot] - 0.5) * first_contacts[foot]
+
+        # Applica condizione aggiuntiva per il movimento
+        air_time *= (torch.norm(self._commands[:, :2], dim=1) > 0.1)
+
         # undersired contacts
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
         is_contact = (
