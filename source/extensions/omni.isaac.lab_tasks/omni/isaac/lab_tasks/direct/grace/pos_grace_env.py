@@ -38,14 +38,11 @@ class GraceEnv(DirectRLEnv):
             for key in [
                 "position_tracking_xy",
                 "heading_tracking_xy",
-                "lin_vel_z_l2",
-                "ang_vel_xy_l2",
+                "dof_vel_l2",
                 "dof_torques_l2",
-                "dof_acc_l2",
-                "action_rate_l2",
-                "feet_air_time",
-                "undesired_contacts",
-                "flat_orientation_l2",
+                "dof_vel_limit",
+                "dof_torques_limit",
+
             ]
         }
         # Get specific body indices
@@ -70,6 +67,13 @@ class GraceEnv(DirectRLEnv):
         self.error_pos = torch.zeros(self.num_envs, device=self.device)
         self.error_heading = torch.zeros(self.num_envs, device=self.device)
         self.remaining_time = torch.zeros(self.num_envs, device=self.device)
+
+        self.joint_vel_limit = torch.zeros((self.num_envs,len(self._all_joints)), device=self.device)
+        self.joint_effort_limit = torch.zeros_like(self.joint_vel_limit )
+
+        for act in self._robot.actuators.keys():
+            self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
+            self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
@@ -216,6 +220,15 @@ class GraceEnv(DirectRLEnv):
         position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_2d), 0.0)
         # Heading Tracking
         heading_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_heading), 0.0)
+        # joint velocity
+        joint_vel = torch.sum(torch.square(self._robot.data.joint_vel[:,self._all_joints]), dim=1)
+        # joint torques
+        joint_torques = torch.sum(torch.square(self._robot.data.applied_torque[:,self._all_joints]), dim=1)
+        # Joint velocity limit
+        joint_vel_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.joint_vel[:,self._all_joints])-self.joint_vel_limit,min=0), dim=1)
+        # Torque limit
+        joint_eff_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.applied_torque[:,self._all_joints])-self.joint_effort_limit,min=0), dim=1)
+
 
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
@@ -227,8 +240,7 @@ class GraceEnv(DirectRLEnv):
         z_vel_error = torch.square(self._robot.data.root_lin_vel_b[:, 2])
         # angular velocity x/y
         ang_vel_error = torch.sum(torch.square(self._robot.data.root_ang_vel_b[:, :2]), dim=1)
-        # joint torques
-        joint_torques = torch.sum(torch.square(self._robot.data.applied_torque), dim=1)
+
         # joint acceleration
         joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
         # action rate
@@ -256,16 +268,19 @@ class GraceEnv(DirectRLEnv):
         flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
 
         rewards = {
-            "position_tracking_xy": position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
-            "heading_tracking_xy": heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
-            "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
-            "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
-            "dof_torques_l2": joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
-            "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
-            "action_rate_l2": action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
-            "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
-            "undesired_contacts": contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
-            "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
+            "position_tracking_xy":     position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
+            "heading_tracking_xy":      heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
+            "dof_vel_l2":               joint_vel * self.cfg.joint_vel_reward_scale * self.step_dt,
+            "dof_torques_l2":           joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
+            "dof_vel_limit":            joint_vel_limit * self.cfg.joint_vel_limit_reward_scale * self.step_dt,
+            "dof_torques_limit":        joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
+            # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
+            # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
+            # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
+            # "action_rate_l2": action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
+            # "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
+            # "undesired_contacts": contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
+            # "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging
