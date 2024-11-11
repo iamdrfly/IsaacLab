@@ -36,8 +36,8 @@ class GraceEnv(DirectRLEnv):
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
             for key in [
-                "track_lin_vel_xy_exp",
-                "track_ang_vel_z_exp",
+                "position_tracking_xy",
+                "heading_tracking_xy",
                 "lin_vel_z_l2",
                 "ang_vel_xy_l2",
                 "dof_torques_l2",
@@ -69,13 +69,14 @@ class GraceEnv(DirectRLEnv):
 
         self.error_pos = torch.zeros(self.num_envs, device=self.device)
         self.error_heading = torch.zeros(self.num_envs, device=self.device)
+        self.remaining_time = torch.zeros(self.num_envs, device=self.device)
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
     def _update_pose_metrics(self):
-        self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self.robot.data.root_pos_w[:, :2], dim=1)
-        self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self.robot.data.heading_w))
+        self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
+        self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
     def _resample_pose_command(self, env_ids: Sequence[int]):
         # obtain env origins for the environments
@@ -202,7 +203,20 @@ class GraceEnv(DirectRLEnv):
 
         return first_contacts, last_air_times
 
+    def _remaining_time(self):
+        self.remaining_time = self.max_episode_length_s - (self.episode_length_buf * (self.cfg.sim.dt * self.cfg.decimation)).squeeze(dim=-1)
+
     def _get_rewards(self) -> torch.Tensor:
+
+        #compute remaining time
+        self._remaining_time()
+
+        #XY-Position Tracking
+        self._update_pose_metrics()
+        position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_2d), 0.0)
+        # Heading Tracking
+        heading_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_heading), 0.0)
+
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
         lin_vel_error_mapped = torch.exp(-lin_vel_error / 0.25)
@@ -242,8 +256,8 @@ class GraceEnv(DirectRLEnv):
         flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
 
         rewards = {
-            "track_lin_vel_xy_exp": lin_vel_error_mapped * self.cfg.lin_vel_reward_scale * self.step_dt,
-            "track_ang_vel_z_exp": yaw_rate_error_mapped * self.cfg.yaw_rate_reward_scale * self.step_dt,
+            "position_tracking_xy": position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
+            "heading_tracking_xy": heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
             "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             "dof_torques_l2": joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
