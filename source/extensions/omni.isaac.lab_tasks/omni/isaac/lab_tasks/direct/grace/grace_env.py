@@ -56,7 +56,7 @@ class GraceEnv(DirectRLEnv):
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
         # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
 
-        self._min_finger_contacts = 1
+        self._min_finger_contacts = 3
 
         self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*HFE")
         self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT.*$).*'])
