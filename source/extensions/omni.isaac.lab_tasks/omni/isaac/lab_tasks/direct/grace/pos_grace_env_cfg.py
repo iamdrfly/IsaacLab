@@ -21,7 +21,7 @@ from omni.isaac.lab.utils import configclass
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 
-
+import math
 @configclass
 class EventCfg:
     """Configuration for randomization."""
@@ -97,6 +97,9 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
     )
+
+    ranges = {"pos_x": (1.0, 5.0), "pos_y": (1.0, 5.0), "heading":(-math.pi, math.pi)}
+    simple_heading = True
 
     # reward scales
     lin_vel_reward_scale            = 1.0*3.5
