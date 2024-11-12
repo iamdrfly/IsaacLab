@@ -44,7 +44,8 @@ class GraceEnv(DirectRLEnv):
                 "dof_vel_limit",
                 "dof_torques_limit",
                 "base_acc",
-                "feet_acc"
+                "feet_acc",
+                "action_rate_l2",
 
             ]
         }
@@ -245,6 +246,8 @@ class GraceEnv(DirectRLEnv):
         feet_acc = torch.zeros(self.num_envs, device=self.device)
         for foot in self._id_acc_foot.keys():
             feet_acc = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
+        # action rate
+        action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
 
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
@@ -259,8 +262,7 @@ class GraceEnv(DirectRLEnv):
 
         # joint acceleration
         joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
-        # action rate
-        action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
+
 
 
         # first_contact = self._contact_sensor.compute_first_contact(self.step_dt)[:, self._feet_ids]
@@ -292,10 +294,11 @@ class GraceEnv(DirectRLEnv):
             "dof_torques_limit":        joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
             "base_acc":                 base_acc * self.cfg.base_acc_reward_scale * self.step_dt,
             "feet_acc":                 feet_acc * self.cfg.feet_acc_reward_scale * self.step_dt,
+            "action_rate_l2":           action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
-            # "action_rate_l2": action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
+
             # "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
             # "undesired_contacts": contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
             # "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
