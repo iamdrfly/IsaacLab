@@ -48,6 +48,9 @@ class GraceEnv(DirectRLEnv):
                 "action_rate_l2",
                 "feet_contact_force",
                 "dont_wait",
+                "move_in_direction",
+                "stand_at_target",
+                "undesired_contacts"
 
             ]
         }
@@ -69,8 +72,9 @@ class GraceEnv(DirectRLEnv):
 
         self._min_finger_contacts = 3
 
-        self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*HFE")
+        self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
         self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT.*$).*'])
+
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
@@ -253,40 +257,39 @@ class GraceEnv(DirectRLEnv):
         # Action rate
         action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
         # Don't wait
-        dont_wait = torch.where(torch.norm(self._robot.data.root_lin_vel_w, dim=-1) < self.cfg.wait_time, 1., 0.)
+        dont_wait = torch.where(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < self.cfg.wait_time, 1., 0.)
+        # Move in direction
+        target_vec = self.pos_command_w  - self._robot.data.root_pos_w
+        move_in_direction = torch.sum(self._robot.data.root_lin_vel_b * target_vec, dim=-1) / (torch.norm(self._robot.data.root_lin_vel_b, dim=-1) * torch.norm(target_vec, dim=-1)  + 1e-6)
+        # Stand at target
+        mask = torch.logical_and(torch.where(self.error_pos_2d <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
+        stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:,self._all_joints] - self._robot.data.joint_pos[:,self._all_joints], dim=-1),0)
 
 
 
-
-
-
-
-        # linear velocity tracking
-        lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
-        lin_vel_error_mapped = torch.exp(-lin_vel_error / 0.25)
-        # yaw rate tracking
-        yaw_rate_error = torch.square(self._commands[:, 2] - self._robot.data.root_ang_vel_b[:, 2])
-        yaw_rate_error_mapped = torch.exp(-yaw_rate_error / 0.25)
+        # # linear velocity tracking
+        # lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
+        # lin_vel_error_mapped = torch.exp(-lin_vel_error / 0.25)
+        # # yaw rate tracking
+        # yaw_rate_error = torch.square(self._commands[:, 2] - self._robot.data.root_ang_vel_b[:, 2])
+        # yaw_rate_error_mapped = torch.exp(-yaw_rate_error / 0.25)
         # z velocity tracking
-        z_vel_error = torch.square(self._robot.data.root_lin_vel_b[:, 2])
-        # angular velocity x/y
-        ang_vel_error = torch.sum(torch.square(self._robot.data.root_ang_vel_b[:, :2]), dim=1)
-
-        # joint acceleration
-        joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
-
-
-
+        # z_vel_error = torch.square(self._robot.data.root_lin_vel_b[:, 2])
+        # # angular velocity x/y
+        # ang_vel_error = torch.sum(torch.square(self._robot.data.root_ang_vel_b[:, :2]), dim=1)
+        #
+        # # joint acceleration
+        # joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
         # first_contact = self._contact_sensor.compute_first_contact(self.step_dt)[:, self._feet_ids]
         # last_air_time = self._contact_sensor.data.last_air_time[:, self._feet_ids]
         # air_time = torch.sum((last_air_time - 0.5) * first_contact, dim=1) * (torch.norm(self._commands[:, :2], dim=1) > 0.1)
-        first_contacts, last_air_times = self._compute_foot_contact(self._contact_sensor, self.step_dt, self._foot_ids, min_contacts=self._min_finger_contacts)
-        air_time = 0
-        for foot in ['lr', 'rf', 'lf', 'rr']:
-            air_time += (last_air_times[foot] - 0.5) * first_contacts[foot]
-
-        # Applica condizione aggiuntiva per il movimento
-        air_time *= (torch.norm(self._commands[:, :2], dim=1) > 0.1)
+        # first_contacts, last_air_times = self._compute_foot_contact(self._contact_sensor, self.step_dt, self._foot_ids, min_contacts=self._min_finger_contacts)
+        # air_time = 0
+        # for foot in ['lr', 'rf', 'lf', 'rr']:
+        #     air_time += (last_air_times[foot] - 0.5) * first_contacts[foot]
+        #
+        # # Applica condizione aggiuntiva per il movimento
+        # air_time *= (torch.norm(self._commands[:, :2], dim=1) > 0.1)
 
         # undersired contacts
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
@@ -309,12 +312,15 @@ class GraceEnv(DirectRLEnv):
             "action_rate_l2":           action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
             "feet_contact_force":       feet_force * self.cfg.feet_contact_force_reward_scale * self.step_dt,
             "dont_wait":                dont_wait * self.cfg.dont_wait_reward_scale * self.step_dt,
+            "move_in_direction":        move_in_direction * self.cfg.move_in_direction_reward_scale * self.step_dt,
+            "stand_at_target":          stand_at_target * self.cfg.stand_at_target_reward_scale * self.step_dt,
+            "undesired_contacts":       contacts * self.cfg.undersired_contact_reward_scale * self.step_dt
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
 
             # "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
-            # "undesired_contacts": contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
+
             # "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)

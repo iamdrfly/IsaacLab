@@ -117,12 +117,17 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     feet_contact_force_reward_scale = -0.00001
     wait_time                       = 0.2
     dont_wait_reward_scale          = -1.
+    move_in_direction_reward_scale  = 1.
+    stand_min_dist                  = 0.25
+    stand_min_ang                   = 0.5
+    stand_at_target_reward_scale    = -0.5
+    undersired_contact_reward_scale = -1.0
     # z_vel_reward_scale              = -2.0
     # ang_vel_reward_scale            = -0.05
     # joint_accel_reward_scale        = -2.5e-7
 
     # feet_air_time_reward_scale      = 0.5*0.9
-    # undersired_contact_reward_scale = -1.0
+
     # flat_orientation_reward_scale   = -5.0
     #
     #
