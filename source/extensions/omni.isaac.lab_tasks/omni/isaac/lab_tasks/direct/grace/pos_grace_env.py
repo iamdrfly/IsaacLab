@@ -46,6 +46,7 @@ class GraceEnv(DirectRLEnv):
                 "base_acc",
                 "feet_acc",
                 "action_rate_l2",
+                "feet_contact_force",
 
             ]
         }
@@ -242,12 +243,20 @@ class GraceEnv(DirectRLEnv):
         # Base acc
         base_acc = (self.cfg.base_lin_acc_weight * torch.square(torch.norm(self._robot.data.body_lin_acc_w[:, self._base_id, :], dim=-1)) +
                     self.cfg.base_ang_acc_weight * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._base_id, :], dim=-1))).squeeze(dim=1)
-        # Feet acc
-        feet_acc = torch.zeros(self.num_envs, device=self.device)
+        # Feet acc and Feet Force
+        feet_acc    = torch.zeros(self.num_envs, device=self.device)
+        feet_force  = torch.zeros(self.num_envs, device=self.device)
         for foot in self._id_acc_foot.keys():
-            feet_acc = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
-        # action rate
+            feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
+            feet_force  = feet_force + torch.sum(torch.clamp(torch.sum(torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot],:], dim=-1), dim=-1)- self.cfg.max_feet_contact_force, min=0)** 2, dim=-1)
+        # Action rate
         action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
+
+
+
+
+
+
 
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
@@ -283,7 +292,7 @@ class GraceEnv(DirectRLEnv):
         )
         contacts = torch.sum(is_contact, dim=1)
         # flat orientation
-        flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
+        # flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
 
         rewards = {
             "position_tracking_xy":     position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
@@ -295,6 +304,7 @@ class GraceEnv(DirectRLEnv):
             "base_acc":                 base_acc * self.cfg.base_acc_reward_scale * self.step_dt,
             "feet_acc":                 feet_acc * self.cfg.feet_acc_reward_scale * self.step_dt,
             "action_rate_l2":           action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
+            "feet_contact_force":       feet_force * self.cfg.feet_contact_force_reward_scale * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,

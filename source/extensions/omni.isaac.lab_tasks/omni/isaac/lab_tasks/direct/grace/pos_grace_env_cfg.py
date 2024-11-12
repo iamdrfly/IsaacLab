@@ -113,6 +113,8 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     base_ang_acc_weight             = 0.02
     feet_acc_reward_scale           = -0.002
     action_rate_reward_scale        = -0.01
+    max_feet_contact_force          = 700.
+    feet_contact_force_reward_scale = -0.00001
     # z_vel_reward_scale              = -2.0
     # ang_vel_reward_scale            = -0.05
     # joint_accel_reward_scale        = -2.5e-7
