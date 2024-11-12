@@ -9,6 +9,7 @@ import gymnasium as gym
 import torch
 
 import omni.isaac.lab.sim as sim_utils
+from hid import device
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
@@ -43,6 +44,7 @@ class GraceEnv(DirectRLEnv):
                 "dof_vel_limit",
                 "dof_torques_limit",
                 "base_acc",
+                "feet_acc"
 
             ]
         }
@@ -53,6 +55,13 @@ class GraceEnv(DirectRLEnv):
                           'rf': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
                           'lf': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
+
+        self._id_acc_foot = { 'lr': self._robot.find_bodies("LR_FOOT")[0],
+                              'rf': self._robot.find_bodies("RF_FOOT")[0],
+                              'lf': self._robot.find_bodies("LF_FOOT")[0],
+                              'rr': self._robot.find_bodies("RR_FOOT")[0]}
+
+
         # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
 
         self._min_finger_contacts = 3
@@ -230,11 +239,12 @@ class GraceEnv(DirectRLEnv):
         # Torque limit
         joint_eff_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.applied_torque[:,self._all_joints])-self.joint_effort_limit,min=0), dim=1)
         # Base acc
-        base_acc = (self.cfg.base_lin_acc * torch.square(torch.norm(self._robot.data.body_lin_acc_w[:, self._base_id, :], dim=-1)) +
-                    self.cfg.base_ang_acc * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._base_id, :], dim=-1))).squeeze(dim=1)
-
-        # torch.sum(torch.square(self._robot.data.body_lin_acc_w[:,self._base_id,:]), dim=1)
-
+        base_acc = (self.cfg.base_lin_acc_weight * torch.square(torch.norm(self._robot.data.body_lin_acc_w[:, self._base_id, :], dim=-1)) +
+                    self.cfg.base_ang_acc_weight * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._base_id, :], dim=-1))).squeeze(dim=1)
+        # Feet acc
+        feet_acc = torch.zeros(self.num_envs, device=self.device)
+        for foot in self._id_acc_foot.keys():
+            feet_acc = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
 
         # linear velocity tracking
         lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
@@ -280,7 +290,8 @@ class GraceEnv(DirectRLEnv):
             "dof_torques_l2":           joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
             "dof_vel_limit":            joint_vel_limit * self.cfg.joint_vel_limit_reward_scale * self.step_dt,
             "dof_torques_limit":        joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
-            "base_acc":                 base_acc * self.cfg.base_acc * self.step_dt,
+            "base_acc":                 base_acc * self.cfg.base_acc_reward_scale * self.step_dt,
+            "feet_acc":                 feet_acc * self.cfg.feet_acc_reward_scale * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
