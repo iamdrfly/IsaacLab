@@ -42,6 +42,7 @@ class GraceEnv(DirectRLEnv):
                 "dof_torques_l2",
                 "dof_vel_limit",
                 "dof_torques_limit",
+                "base_acc",
 
             ]
         }
@@ -228,6 +229,11 @@ class GraceEnv(DirectRLEnv):
         joint_vel_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.joint_vel[:,self._all_joints])-self.joint_vel_limit,min=0), dim=1)
         # Torque limit
         joint_eff_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.applied_torque[:,self._all_joints])-self.joint_effort_limit,min=0), dim=1)
+        # Base acc
+        base_acc = (self.cfg.base_lin_acc * torch.square(torch.norm(self._robot.data.body_lin_acc_w[:, self._base_id, :], dim=-1)) +
+                    self.cfg.base_ang_acc * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._base_id, :], dim=-1))).squeeze(dim=1)
+
+        # torch.sum(torch.square(self._robot.data.body_lin_acc_w[:,self._base_id,:]), dim=1)
 
 
         # linear velocity tracking
@@ -274,6 +280,7 @@ class GraceEnv(DirectRLEnv):
             "dof_torques_l2":           joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
             "dof_vel_limit":            joint_vel_limit * self.cfg.joint_vel_limit_reward_scale * self.step_dt,
             "dof_torques_limit":        joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
+            "base_acc":                 base_acc * self.cfg.base_acc * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
