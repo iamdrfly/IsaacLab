@@ -278,17 +278,12 @@ class GraceEnv(DirectRLEnv):
         )
         contacts = torch.sum(is_contact, dim=1)
         # Termination
-
         mask_base_collision = torch.max(torch.norm(net_contact_forces[:, :, self._base_id], dim=-1), dim=1)[0] > 1.0
         mask_lf_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["lf"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
         mask_lr_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["lr"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
         mask_rf_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["rf"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
         mask_rr_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["rr"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
-
-        # Combine the collision masks for all feet in a single step
         combined_mask = mask_lf_collision | mask_lr_collision | mask_rf_collision | mask_rr_collision
-
-        # Calculate termination condition based on base collision or any foot collision
         termination = torch.where(mask_base_collision.squeeze() | combined_mask, 1, 0)
 
 
@@ -335,7 +330,7 @@ class GraceEnv(DirectRLEnv):
             "dont_wait":                dont_wait * self.cfg.dont_wait_reward_scale * self.step_dt,
             "move_in_direction":        move_in_direction * self.cfg.move_in_direction_reward_scale * self.step_dt,
             "stand_at_target":          stand_at_target * self.cfg.stand_at_target_reward_scale * self.step_dt,
-            "undesired_contacts":       contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
+            "undesired_contacts":       contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
             "stumble":                  stumble * self.cfg.stumble_reward_scale * self.step_dt,
             "termination":              termination * self.cfg.termination_reward_scale * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,

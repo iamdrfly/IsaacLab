@@ -58,6 +58,7 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     action_space = 12
     observation_space = 48
     state_space = 0
+    is_finite_horizon = True
 
     # simulation
     sim: SimulationCfg = SimulationCfg(
@@ -121,7 +122,7 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
     stand_at_target_reward_scale    = -0.5
-    undersired_contact_reward_scale = -1.0
+    undesired_contact_reward_scale  = -1.0
     stumble_reward_scale            = -1.0
     feet_termination_force          = 1500.
     termination_reward_scale        = -200
