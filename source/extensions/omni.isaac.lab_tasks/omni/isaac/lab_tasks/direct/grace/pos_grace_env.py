@@ -50,7 +50,8 @@ class GraceEnv(DirectRLEnv):
                 "dont_wait",
                 "move_in_direction",
                 "stand_at_target",
-                "undesired_contacts"
+                "undesired_contacts",
+                "stumble"
 
             ]
         }
@@ -251,10 +252,15 @@ class GraceEnv(DirectRLEnv):
         # Feet acc and Feet Force
         feet_acc    = torch.zeros(self.num_envs, device=self.device)
         feet_force  = torch.zeros(self.num_envs, device=self.device)
+        stumble     = torch.zeros(self.num_envs, device=self.device)
         for foot in self._id_acc_foot.keys():
             feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
             feet_force  = feet_force + torch.sum(torch.clamp(torch.sum(torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot],:], dim=-1), dim=-1)- self.cfg.max_feet_contact_force, min=0)** 2, dim=-1)
-        # Action rate
+            fxy = torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot], :2], dim=-1)
+            fz = torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot], 2:], dim=-1)
+            stumble = stumble + torch.sum(torch.where(fxy>2*fz,1,0),dim=(1,2))
+
+            # Action rate
         action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
         # Don't wait
         dont_wait = torch.where(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < self.cfg.wait_time, 1., 0.)
@@ -264,7 +270,13 @@ class GraceEnv(DirectRLEnv):
         # Stand at target
         mask = torch.logical_and(torch.where(self.error_pos_2d <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
         stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:,self._all_joints] - self._robot.data.joint_pos[:,self._all_joints], dim=-1),0)
-
+        # undersired contacts
+        net_contact_forces = self._contact_sensor.data.net_forces_w_history
+        is_contact = (
+            torch.max(torch.norm(net_contact_forces[:, :, self._undesired_contact_body_ids], dim=-1), dim=1)[0] > 1.0
+        )
+        contacts = torch.sum(is_contact, dim=1)
+        # Stumble
 
 
         # # linear velocity tracking
@@ -291,12 +303,7 @@ class GraceEnv(DirectRLEnv):
         # # Applica condizione aggiuntiva per il movimento
         # air_time *= (torch.norm(self._commands[:, :2], dim=1) > 0.1)
 
-        # undersired contacts
-        net_contact_forces = self._contact_sensor.data.net_forces_w_history
-        is_contact = (
-            torch.max(torch.norm(net_contact_forces[:, :, self._undesired_contact_body_ids], dim=-1), dim=1)[0] > 1.0
-        )
-        contacts = torch.sum(is_contact, dim=1)
+
         # flat orientation
         # flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
 
@@ -314,7 +321,8 @@ class GraceEnv(DirectRLEnv):
             "dont_wait":                dont_wait * self.cfg.dont_wait_reward_scale * self.step_dt,
             "move_in_direction":        move_in_direction * self.cfg.move_in_direction_reward_scale * self.step_dt,
             "stand_at_target":          stand_at_target * self.cfg.stand_at_target_reward_scale * self.step_dt,
-            "undesired_contacts":       contacts * self.cfg.undersired_contact_reward_scale * self.step_dt
+            "undesired_contacts":       contacts * self.cfg.undersired_contact_reward_scale * self.step_dt,
+            "stumble":                  stumble * self.cfg.stumble_reward_scale * self.step_dt,
             # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
             # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
             # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,

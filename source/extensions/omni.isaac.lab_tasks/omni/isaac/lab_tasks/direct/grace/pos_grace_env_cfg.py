@@ -122,6 +122,7 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     stand_min_ang                   = 0.5
     stand_at_target_reward_scale    = -0.5
     undersired_contact_reward_scale = -1.0
+    stumble_reward_scale            = -1.0
     # z_vel_reward_scale              = -2.0
     # ang_vel_reward_scale            = -0.05
     # joint_accel_reward_scale        = -2.5e-7
