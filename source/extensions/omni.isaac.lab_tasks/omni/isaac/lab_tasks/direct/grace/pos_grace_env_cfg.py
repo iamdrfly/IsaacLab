@@ -108,6 +108,9 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
     joint_torque_reward_scale       = -0.00001
     joint_vel_limit_reward_scale    = -1
     joint_torque_limit_reward_scale = -0.2
+    base_acc                        = -0.001
+    base_lin_acc                    = 1.
+    base_ang_acc                    = 0.02
     # z_vel_reward_scale              = -2.0
     # ang_vel_reward_scale            = -0.05
     # joint_accel_reward_scale        = -2.5e-7
