@@ -126,7 +126,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     undesired_contact_reward_scale  = -1.0
     stumble_reward_scale            = -1.0
     feet_termination_force          = 1500.
-    termination_reward_scale        = -200
+    termination_reward_scale        = -200.
     # z_vel_reward_scale              = -2.0
     # ang_vel_reward_scale            = -0.05
     # joint_accel_reward_scale        = -2.5e-7
