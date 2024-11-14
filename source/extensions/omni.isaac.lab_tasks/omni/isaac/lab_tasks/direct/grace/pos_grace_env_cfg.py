@@ -20,6 +20,7 @@ from omni.isaac.lab.utils import configclass
 ##
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
+from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG  # isort: skip
 
 import math
 @configclass
@@ -50,7 +51,7 @@ class EventCfg:
 
 
 @configclass
-class GraceFlatEnvCfg(DirectRLEnvCfg):
+class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     # env
     episode_length_s = 6.0
     decimation = 4
@@ -138,14 +139,14 @@ class GraceFlatEnvCfg(DirectRLEnvCfg):
 
 
 @configclass
-class GraceRoughEnvCfg(GraceFlatEnvCfg):
+class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     # env
     observation_space = 235
 
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=ROUGH_TERRAINS_CFG,
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(

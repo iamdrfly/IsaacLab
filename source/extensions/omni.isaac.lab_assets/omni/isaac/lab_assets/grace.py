@@ -98,7 +98,8 @@ GRACE_SPHERICAL_CFG = DCMotorCfg(
 ##
 GRACE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path= "/home/lab/IsaacLab/usd/grace.usd", #find_absolute_path("grace.usd"),
+        # usd_path= "/home/lab/IsaacLab/usd/grace.usd", #find_absolute_path("grace.usd"),
+        usd_path = "/home/etosin/Documents/grace_description/usd/grace_with_ball_fingers.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
