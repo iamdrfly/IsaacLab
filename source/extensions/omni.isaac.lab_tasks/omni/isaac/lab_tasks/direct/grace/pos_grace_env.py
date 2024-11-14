@@ -14,14 +14,14 @@ from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
 
-from .grace_env_cfg import GraceFlatEnvCfg, GraceRoughEnvCfg
+from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
 from omni.isaac.lab.utils.math import combine_frame_transforms, compute_pose_error, quat_from_euler_xyz, quat_unique, wrap_to_pi, quat_rotate_inverse, yaw_quat
 from collections.abc import Sequence
 
 class GraceEnv(DirectRLEnv):
-    cfg: GraceFlatEnvCfg | GraceRoughEnvCfg
+    cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg
 
-    def __init__(self, cfg: GraceFlatEnvCfg | GraceRoughEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         # Joint position command (deviation from default joint positions)
@@ -144,7 +144,7 @@ class GraceEnv(DirectRLEnv):
         self.scene.articulations["robot"] = self._robot
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
-        if isinstance(self.cfg, GraceRoughEnvCfg):
+        if isinstance(self.cfg, PosGraceRoughEnvCfg):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
@@ -168,7 +168,7 @@ class GraceEnv(DirectRLEnv):
     def _get_observations(self) -> dict:
         self._previous_actions = self._actions.clone()
         height_data = None
-        if isinstance(self.cfg, GraceRoughEnvCfg):
+        if isinstance(self.cfg, PosGraceRoughEnvCfg):
             height_data = (
                 self._height_scanner.data.pos_w[:, 2].unsqueeze(1) - self._height_scanner.data.ray_hits_w[..., 2] - 0.5
             ).clip(-1.0, 1.0)
