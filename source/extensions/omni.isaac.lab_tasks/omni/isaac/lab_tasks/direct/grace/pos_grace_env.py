@@ -252,14 +252,25 @@ class GraceEnv(DirectRLEnv):
                     self.cfg.base_ang_acc_weight * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._base_id, :], dim=-1))).squeeze(dim=1)
         # Feet acc and Feet Force
         feet_acc    = torch.zeros(self.num_envs, device=self.device)
-        feet_force  = torch.zeros(self.num_envs, device=self.device)
+        feet_force  = torch.zeros(self.num_envs, self._contact_sensor.data.net_forces_w_history.shape[1], device=self.device)
         stumble     = torch.zeros(self.num_envs, device=self.device)
+        combined_mask = torch.zeros(self.num_envs, device=self.device)
+        norm_feet_force_dict = dict()
         for foot in self._id_acc_foot.keys():
+            #FEET ACC
             feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
-            feet_force  = feet_force + torch.sum(torch.clamp(torch.sum(torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot],:], dim=-1), dim=-1)- self.cfg.max_feet_contact_force, min=0)** 2, dim=-1)
+            #CONTACT FORCE
+            norm_feet_force_dict[foot] = torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot]], dim=2), dim=-1)
+            feet_force  = feet_force + torch.clamp(norm_feet_force_dict[foot] - self.cfg.max_feet_contact_force, min=0)** 2
+            #STUMBLE
             fxy = torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot], :2], dim=-1)
             fz = torch.norm(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot], 2:], dim=-1)
             stumble = stumble + torch.sum(torch.where(fxy>2*fz,1,0),dim=(1,2))
+            #TERMINATION FEET CONTACT
+            combined_mask = torch.logical_or(torch.max(norm_feet_force_dict[foot], dim=1)[0] > self.cfg.feet_termination_force,combined_mask)
+
+
+        feet_force = torch.max(feet_force, dim=-1)[0]
 
             # Action rate
         action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
@@ -279,11 +290,6 @@ class GraceEnv(DirectRLEnv):
         contacts = torch.sum(is_contact, dim=1)
         # Termination
         mask_base_collision = torch.max(torch.norm(net_contact_forces[:, :, self._base_id], dim=-1), dim=1)[0] > 1.0
-        mask_lf_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["lf"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
-        mask_lr_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["lr"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
-        mask_rf_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["rf"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
-        mask_rr_collision = torch.max(torch.norm(net_contact_forces[:, :, self._foot_ids["rr"]], dim=-1).sum(dim=-1), dim=1)[0] > self.cfg.feet_termination_force
-        combined_mask = mask_lf_collision | mask_lr_collision | mask_rf_collision | mask_rr_collision
         termination = torch.where(mask_base_collision.squeeze() | combined_mask, 1, 0)
 
 
@@ -351,6 +357,16 @@ class GraceEnv(DirectRLEnv):
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
         died = torch.any(torch.max(torch.norm(net_contact_forces[:, :, self._base_id], dim=-1), dim=1)[0] > 1.0, dim=1)
+
+        tot_force = dict()
+        tot_mask = dict()
+        mask = torch.zeros(self.num_envs, device= self.device)
+        for id in self._foot_ids.keys():
+            tot_force[id] =     torch.sum(net_contact_forces[:, :, self._foot_ids[id]], dim=2, keepdim=True)
+            tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
+            mask = torch.logical_or(mask,tot_mask[id])
+
+        died =  torch.logical_or(died,mask)
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
