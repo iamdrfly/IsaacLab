@@ -18,12 +18,13 @@ from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
 from omni.isaac.lab.utils.math import combine_frame_transforms, compute_pose_error, quat_from_euler_xyz, quat_unique, wrap_to_pi, quat_rotate_inverse, yaw_quat
 from collections.abc import Sequence
 
+cnt = 0
+
 class GraceEnv(DirectRLEnv):
     cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg
 
     def __init__(self, cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
-        # self.init_done = False
         # Joint position command (deviation from default joint positions)
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
         self._previous_actions = torch.zeros(
@@ -94,7 +95,6 @@ class GraceEnv(DirectRLEnv):
             self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
             self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
-        # self.init_done = True
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
@@ -103,12 +103,15 @@ class GraceEnv(DirectRLEnv):
         self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
-    def _resample_pose_command(self, env_ids: Sequence[int], init_done=False):
-        if init_done:
-            # don't change on initial reset
+    def _resample_pose_command(self, env_ids: Sequence[int]):
+        if cnt == 0:
             return
         # obtain env origins for the environments
-        self.pos_command_w[env_ids] = self.scene.env_origins[env_ids]
+
+        default_root_state = self._robot.data.default_root_state[env_ids]
+        default_root_state[:, :3] += self._terrain.env_origins[env_ids]
+
+        self.pos_command_w[env_ids] = default_root_state[:, :3]
         # offset the position command by the current root position
         r = torch.empty(len(env_ids), device=self.device)
 
@@ -229,7 +232,7 @@ class GraceEnv(DirectRLEnv):
         self.remaining_time = self.max_episode_length_s - (self.episode_length_buf * (self.cfg.sim.dt * self.cfg.decimation)).squeeze(dim=-1)
 
     def _get_rewards(self) -> torch.Tensor:
-
+        cnt = 1
         #compute remaining time
         self._remaining_time()
 
@@ -268,7 +271,10 @@ class GraceEnv(DirectRLEnv):
             #TERMINATION FEET CONTACT
             combined_mask = torch.logical_or(torch.max(norm_feet_force_dict[foot], dim=1)[0] > self.cfg.feet_termination_force,combined_mask)
 
-
+        # if torch.any(feet_force>0.):
+        #     print("feet_force>0")
+        # if torch.any(combined_mask):
+        #     print("combined_mask>0")
         feet_force = torch.max(feet_force, dim=-1)[0]
 
             # Action rate
@@ -290,36 +296,8 @@ class GraceEnv(DirectRLEnv):
         # Termination
         mask_base_collision = torch.max(torch.norm(net_contact_forces[:, :, self._base_id], dim=-1), dim=1)[0] > 1.0
         termination = torch.where(mask_base_collision.squeeze() | combined_mask, 1, 0)
-
-
-
-        # # linear velocity tracking
-        # lin_vel_error = torch.sum(torch.square(self._commands[:, :2] - self._robot.data.root_lin_vel_b[:, :2]), dim=1)
-        # lin_vel_error_mapped = torch.exp(-lin_vel_error / 0.25)
-        # # yaw rate tracking
-        # yaw_rate_error = torch.square(self._commands[:, 2] - self._robot.data.root_ang_vel_b[:, 2])
-        # yaw_rate_error_mapped = torch.exp(-yaw_rate_error / 0.25)
-        # z velocity tracking
-        # z_vel_error = torch.square(self._robot.data.root_lin_vel_b[:, 2])
-        # # angular velocity x/y
-        # ang_vel_error = torch.sum(torch.square(self._robot.data.root_ang_vel_b[:, :2]), dim=1)
-        #
-        # # joint acceleration
-        # joint_accel = torch.sum(torch.square(self._robot.data.joint_acc), dim=1)
-        # first_contact = self._contact_sensor.compute_first_contact(self.step_dt)[:, self._feet_ids]
-        # last_air_time = self._contact_sensor.data.last_air_time[:, self._feet_ids]
-        # air_time = torch.sum((last_air_time - 0.5) * first_contact, dim=1) * (torch.norm(self._commands[:, :2], dim=1) > 0.1)
-        # first_contacts, last_air_times = self._compute_foot_contact(self._contact_sensor, self.step_dt, self._foot_ids, min_contacts=self._min_finger_contacts)
-        # air_time = 0
-        # for foot in ['lr', 'rf', 'lf', 'rr']:
-        #     air_time += (last_air_times[foot] - 0.5) * first_contacts[foot]
-        #
-        # # Applica condizione aggiuntiva per il movimento
-        # air_time *= (torch.norm(self._commands[:, :2], dim=1) > 0.1)
-
-
-        # flat orientation
-        # flat_orientation = torch.sum(torch.square(self._robot.data.projected_gravity_b[:, :2]), dim=1)
+        # if torch.any(termination>0.):
+        #     print("termination")
 
         rewards = {
             "position_tracking_xy":     position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
@@ -338,13 +316,6 @@ class GraceEnv(DirectRLEnv):
             "undesired_contacts":       contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
             "stumble":                  stumble * self.cfg.stumble_reward_scale * self.step_dt,
             "termination":              termination * self.cfg.termination_reward_scale * self.step_dt,
-            # "lin_vel_z_l2": z_vel_error * self.cfg.z_vel_reward_scale * self.step_dt,
-            # "ang_vel_xy_l2": ang_vel_error * self.cfg.ang_vel_reward_scale * self.step_dt,
-            # "dof_acc_l2": joint_accel * self.cfg.joint_accel_reward_scale * self.step_dt,
-
-            # "feet_air_time": air_time * self.cfg.feet_air_time_reward_scale * self.step_dt,
-
-            # "flat_orientation_l2": flat_orientation * self.cfg.flat_orientation_reward_scale * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging
@@ -365,8 +336,10 @@ class GraceEnv(DirectRLEnv):
             tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
             mask = torch.logical_or(mask,tot_mask[id])
 
-        if torch.any(mask):
-            print("ciao")
+        # if torch.any(died):
+        #     print("died-termination-base-contact")
+        # if torch.any(mask):
+        #     print("mask")
         died =  torch.logical_or(died,mask)
         return died, time_out
 
@@ -376,9 +349,9 @@ class GraceEnv(DirectRLEnv):
         self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)[:,:2]
         self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
 
-    def _update_terrain_curriculum(self, env_ids, init_done = False):
+    def _update_terrain_curriculum(self, env_ids):
         # Implement Terrain curriculum
-        if init_done:
+        if cnt==0:
             # don't change on initial reset
             return
 
@@ -387,15 +360,17 @@ class GraceEnv(DirectRLEnv):
         move_up = distance_to_goal <= 0.5
         move_down = (distance_to_goal > 1.) * ~move_up
 
-        self._terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
+        if hasattr(self._terrain,"terrain_levels"):
+            self._terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
 
-        # Robots that solve the last level are sent to a random one
-        self._terrain.terrain_levels[env_ids] = torch.where(self._terrain.terrain_levels[env_ids] >=self._terrain.max_terrain_level,
-                                                                torch.randint_like(self._terrain.terrain_levels[env_ids], self._terrain.max_terrain_level),
-                                                                torch.clip(self._terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
+            # Robots that solve the last level are sent to a random one
+            self._terrain.terrain_levels[env_ids] = torch.where(self._terrain.terrain_levels[env_ids] >=self._terrain.max_terrain_level,
+                                                                    torch.randint_like(self._terrain.terrain_levels[env_ids], self._terrain.max_terrain_level),
+                                                                    torch.clip(self._terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
 
-        self._terrain.env_origins[env_ids]    = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
-
+            self._terrain.env_origins[env_ids]    = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
+        # else:
+        #     print("terreno piatto o senza attributo terrain_levels")
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self._robot._ALL_INDICES
@@ -408,6 +383,9 @@ class GraceEnv(DirectRLEnv):
         self._previous_actions[env_ids] = 0.0
 
         self._update_terrain_curriculum(env_ids)
+
+        global cnt
+        cnt = 1
 
         # Sample new commands
         # self._commands[env_ids] = torch.zeros_like(self._commands[env_ids]).uniform_(-1.0, 1.0)

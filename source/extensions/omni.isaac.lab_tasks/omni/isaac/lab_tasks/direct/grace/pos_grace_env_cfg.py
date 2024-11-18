@@ -107,7 +107,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     position_tracking_reward_scale  = 10
     heading_tracking_reward_scale   = 5
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.00001
+    joint_torque_reward_scale       = -0.00001 * 0.000002/0.00001
     joint_vel_limit_reward_scale    = -1
     joint_torque_limit_reward_scale = -0.2
     base_acc_reward_scale           = -0.001
@@ -116,9 +116,9 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     feet_acc_reward_scale           = -0.002
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 700.
-    feet_contact_force_reward_scale = -0.00001
+    feet_contact_force_reward_scale = -0.00001 /10
     wait_time                       = 0.2
-    dont_wait_reward_scale          = -1.
+    dont_wait_reward_scale          = -1. *2
     move_in_direction_reward_scale  = 1.
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
@@ -127,15 +127,6 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -1.0
     feet_termination_force          = 1500.
     termination_reward_scale        = -200.
-    # z_vel_reward_scale              = -2.0
-    # ang_vel_reward_scale            = -0.05
-    # joint_accel_reward_scale        = -2.5e-7
-
-    # feet_air_time_reward_scale      = 0.5*0.9
-
-    # flat_orientation_reward_scale   = -5.0
-    #
-    #
 
 
 @configclass
