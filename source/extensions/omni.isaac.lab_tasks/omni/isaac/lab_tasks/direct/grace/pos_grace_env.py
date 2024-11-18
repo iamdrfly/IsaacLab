@@ -23,7 +23,7 @@ class GraceEnv(DirectRLEnv):
 
     def __init__(self, cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
-
+        # self.init_done = False
         # Joint position command (deviation from default joint positions)
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
         self._previous_actions = torch.zeros(
@@ -94,6 +94,8 @@ class GraceEnv(DirectRLEnv):
             self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
             self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
+        # self.init_done = True
+
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
@@ -101,7 +103,10 @@ class GraceEnv(DirectRLEnv):
         self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
-    def _resample_pose_command(self, env_ids: Sequence[int]):
+    def _resample_pose_command(self, env_ids: Sequence[int], init_done=False):
+        if init_done:
+            # don't change on initial reset
+            return
         # obtain env origins for the environments
         self.pos_command_w[env_ids] = self.scene.env_origins[env_ids]
         # offset the position command by the current root position
@@ -132,12 +137,6 @@ class GraceEnv(DirectRLEnv):
         else:
             # random heading command
             self.heading_command_w[env_ids] = r.uniform_(*self.cfg.ranges["heading"])
-
-    def _update_pose_command(self):
-        """Re-target the position command to the current root state."""
-        target_vec = self.pos_command_w - self._robot.data.root_pos_w
-        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)[:,:2]
-        self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
 
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
@@ -366,8 +365,36 @@ class GraceEnv(DirectRLEnv):
             tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
             mask = torch.logical_or(mask,tot_mask[id])
 
+        if torch.any(mask):
+            print("ciao")
         died =  torch.logical_or(died,mask)
         return died, time_out
+
+    def _update_pose_command(self):
+        """Re-target the position command to the current root state."""
+        target_vec = self.pos_command_w - self._robot.data.root_pos_w
+        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)[:,:2]
+        self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
+
+    def _update_terrain_curriculum(self, env_ids, init_done = False):
+        # Implement Terrain curriculum
+        if init_done:
+            # don't change on initial reset
+            return
+
+        distance_to_goal = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+
+        move_up = distance_to_goal <= 0.5
+        move_down = (distance_to_goal > 1.) * ~move_up
+
+        self._terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
+
+        # Robots that solve the last level are sent to a random one
+        self._terrain.terrain_levels[env_ids] = torch.where(self._terrain.terrain_levels[env_ids] >=self._terrain.max_terrain_level,
+                                                                torch.randint_like(self._terrain.terrain_levels[env_ids], self._terrain.max_terrain_level),
+                                                                torch.clip(self._terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
+
+        self._terrain.env_origins[env_ids]    = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
@@ -380,6 +407,8 @@ class GraceEnv(DirectRLEnv):
         self._actions[env_ids] = 0.0
         self._previous_actions[env_ids] = 0.0
 
+        self._update_terrain_curriculum(env_ids)
+
         # Sample new commands
         # self._commands[env_ids] = torch.zeros_like(self._commands[env_ids]).uniform_(-1.0, 1.0)
         self._resample_pose_command(env_ids)
@@ -387,10 +416,14 @@ class GraceEnv(DirectRLEnv):
         # Reset robot state
         joint_pos = self._robot.data.default_joint_pos[env_ids]
         joint_vel = self._robot.data.default_joint_vel[env_ids]
+
+        #muovo robot nel nuovo terreno in accordo curriculum
         default_root_state = self._robot.data.default_root_state[env_ids]
         default_root_state[:, :3] += self._terrain.env_origins[env_ids]
+
         self._robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
         self._robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
+
         self._robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
         # Logging
         extras = dict()
