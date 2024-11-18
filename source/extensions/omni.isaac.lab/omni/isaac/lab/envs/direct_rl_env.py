@@ -544,7 +544,7 @@ class DirectRLEnv(gym.Env):
         # instantiate actions (needed for tasks for which the observations computation is dependent on the actions)
         self.actions = sample_space(self.single_action_space, self.sim.device, batch_size=self.num_envs, fill_value=0)
 
-    def _reset_idx(self, env_ids: Sequence[int]):
+    def _reset_idx(self, env_ids: Sequence[int], init_done = True):
         """Reset environments based on specified indices.
 
         Args:
