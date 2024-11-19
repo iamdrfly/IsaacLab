@@ -5,6 +5,7 @@ import threading
 import wandb
 import logging
 
+global_sweep_counter = 0
 PATH_WANDB_FOLDER = "/home/lab/IsaacLab/train_wandb"
 # Configura il logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -45,6 +46,8 @@ def monitor_training_and_log():
     """
     Monitora il completamento del training leggendo `resultisaac.txt`.
     """
+    global global_sweep_counter
+
     # Controlla che il training sia completo leggendo il file
     result_file = PATH_WANDB_FOLDER + "/resultisaac.txt"
     synchronized_file_check(result_file, timeout=43200)  # Timeout: 12 ore
@@ -54,7 +57,13 @@ def monitor_training_and_log():
     with open(result_file, "r") as f:
         metrics = {line.split('=')[0]: float(line.split('=')[1]) for line in f.readlines()}
 
-    # Logga i risultati su WandB
+    # # Ottieni la mean_reward dal file
+    # mean_reward = metrics.get("mean_reward", 0)
+    #
+    # # Logga i risultati su WandB con sweep_number
+    # wandb.log({"sweep_number": global_sweep_counter, "mean_reward": mean_reward})
+    # logging.info(f"Dati loggati su WandB: sweep_number={global_sweep_counter}, mean_reward={mean_reward}")
+
     logging.info("Logging dei risultati su WandB.")
     wandb.log(metrics)
 
@@ -62,11 +71,12 @@ def monitor_training_and_log():
     os.remove(result_file)
     logging.info(f"File {result_file} eliminato dopo l'uso.")
 
-
 def train():
     """
     Funzione principale per il training, gestita da WandB agent.
     """
+    global global_sweep_counter
+    global_sweep_counter += 1  # Incrementa il contatore per il numero di sweep
     # Avvio della run di WandB
     run = wandb.init()
 
@@ -117,6 +127,10 @@ def train():
     training_thread.join()
     monitor_thread.join()
 
+    # Incrementa il contatore al termine dell'intero ciclo di sweep
+    global_sweep_counter += 1
+    logging.info(f"Sweep numero {global_sweep_counter} completato.")
+
     # Elimina il file degli iperparametri per evitare conflitti
     if os.path.exists(hyper_file):
         os.remove(hyper_file)
@@ -159,7 +173,7 @@ sweep_config = {
 }
 
 # Definiamo lo sweep
-sweep_id = wandb.sweep(sweep_config, project="isaaclab-optimization", count=10)
+sweep_id = wandb.sweep(sweep_config, project="isaaclab-optimization")
 
 # Avvio dello sweep
-wandb.agent(sweep_id, function=train)
+wandb.agent(sweep_id, function=train, count=10)
