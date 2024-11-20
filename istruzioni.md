@@ -62,3 +62,10 @@
 ## Riepilogo
 
 Seguendo questi passaggi, sarai in grado di mantenere il tuo fork aggiornato e di lavorare sulle tue modifiche senza problemi.
+
+
+## Delete rami remoti
+git push -d origino nome_del_branch_remoto
+
+## Delete rami locali
+git branch -d nome_branch_locale
