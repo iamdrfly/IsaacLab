@@ -23,8 +23,11 @@ from omni.isaac.lab.utils import configclass
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG  # isort: skip
-
+from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
+import random
 import math
+import torch
+
 @configclass
 class EventCfg:
     """Configuration for randomization."""
@@ -177,7 +180,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     feet_air_time_reward_scale = 0.5*1.1
     lin_vel_reward_scale = 1.0*4
 
-    show_flat_patches = True # da passare come args
+    show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
     if show_flat_patches:
         for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
@@ -186,5 +189,3 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
             }
     if color_scheme in ["height", "random"]:
         terrain.visual_material = None
-
-
