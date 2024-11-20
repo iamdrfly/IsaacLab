@@ -74,7 +74,9 @@ Table of Contents
    :maxdepth: 2
    :caption: Getting Started
 
+   source/setup/ecosystem
    source/setup/installation/index
+   source/setup/installation/cloud_installation
    source/setup/faq
 
 .. toctree::
@@ -127,6 +129,7 @@ Table of Contents
    :maxdepth: 1
    :caption: References
 
+   source/refs/reference_architecture/index
    source/refs/additional_resources
    source/refs/contributing
    source/refs/troubleshooting
