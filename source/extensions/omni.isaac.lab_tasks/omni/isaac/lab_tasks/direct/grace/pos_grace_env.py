@@ -19,6 +19,9 @@ from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
 from omni.isaac.lab.utils.math import combine_frame_transforms, compute_pose_error, quat_from_euler_xyz, quat_unique, wrap_to_pi, quat_rotate_inverse, yaw_quat
 from collections.abc import Sequence
 
+from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
+import random
+
 cnt = 0
 
 class GraceEnv(DirectRLEnv):
@@ -160,6 +163,29 @@ class GraceEnv(DirectRLEnv):
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+
+        if self.cfg.show_flat_patches:
+            # Configure the flat patches
+            vis_cfg = VisualizationMarkersCfg(prim_path="/Visuals/TerrainFlatPatches", markers={})
+            for name in self._terrain.flat_patches:
+                vis_cfg.markers[name] = sim_utils.CylinderCfg(
+                    radius=0.5,  # note: manually set to the patch radius for visualization
+                    height=0.1,
+                    visual_material=sim_utils.GlassMdlCfg(glass_color=(random.random(), random.random(), random.random())),
+                )
+            flat_patches_visualizer = VisualizationMarkers(vis_cfg)
+
+            # Visualize the flat patches
+            all_patch_locations = []
+            all_patch_indices = []
+            for i, patch_locations in enumerate(self._terrain.flat_patches.values()):
+                num_patch_locations = patch_locations.view(-1, 3).shape[0]
+                # store the patch locations and indices
+                all_patch_locations.append(patch_locations.view(-1, 3))
+                all_patch_indices += [i] * num_patch_locations
+            # combine the patch locations and indices
+            flat_patches_visualizer.visualize(torch.cat(all_patch_locations), marker_indices=all_patch_indices)
+
         # clone, filter, and replicate
         self.scene.clone_environments(copy_from_source=False)
         self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
