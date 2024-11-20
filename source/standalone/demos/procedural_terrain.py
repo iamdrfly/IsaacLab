@@ -77,6 +77,7 @@ from omni.isaac.lab.terrains import FlatPatchSamplingCfg, TerrainImporter, Terra
 # Pre-defined configs
 ##
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort:skip
+from omni.isaac.lab.terrains.config.supsi_rough import CUBES_SUPSI_TERRAINS_CFG # isort:skip
 
 
 def design_scene() -> tuple[dict, torch.Tensor]:
@@ -86,7 +87,7 @@ def design_scene() -> tuple[dict, torch.Tensor]:
     cfg.func("/World/Light", cfg)
 
     # Parse terrain generation
-    terrain_gen_cfg = ROUGH_TERRAINS_CFG.replace(curriculum=args_cli.use_curriculum, color_scheme=args_cli.color_scheme)
+    terrain_gen_cfg = CUBES_SUPSI_TERRAINS_CFG.replace(curriculum=args_cli.use_curriculum, color_scheme=args_cli.color_scheme)
 
     # Add flat patch configuration
     # Note: To have separate colors for each sub-terrain type, we set the flat patch sampling configuration name

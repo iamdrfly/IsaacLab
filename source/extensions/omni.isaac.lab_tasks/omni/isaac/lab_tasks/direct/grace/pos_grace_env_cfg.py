@@ -145,6 +145,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
+        visual_material=None,
         terrain_generator=CUBES_SUPSI_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
@@ -154,10 +155,10 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        visual_material=sim_utils.MdlFileCfg(
-            mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
-            project_uvw=True,
-        ),
+        # visual_material=sim_utils.MdlFileCfg(
+        #     mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+        #     project_uvw=True,
+        # ),
         debug_vis=False,
     )
 
