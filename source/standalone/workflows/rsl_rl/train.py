@@ -25,6 +25,27 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+
+# parser.add_argument(
+#     "--color_scheme",
+#     type=str,
+#     default="none",
+#     choices=["height", "random", "none"],
+#     help="Color scheme to use for the terrain generation.",
+# )
+# parser.add_argument(
+#     "--use_curriculum",
+#     action="store_true",
+#     default=False,
+#     help="Whether to use the curriculum for the terrain generation.",
+# )
+# parser.add_argument(
+#     "--show_flat_patches",
+#     action="store_true",
+#     default=False,
+#     help="Whether to show the flat patches computed during the terrain generation.",
+# )
+
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
