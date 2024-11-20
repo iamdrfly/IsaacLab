@@ -14,7 +14,7 @@ from omni.isaac.lab_tasks.utils.wrappers.rsl_rl import (
 @configclass
 class GraceFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 48
-    max_iterations = 2
+    max_iterations = 2000
     save_interval = 50
     experiment_name = "pos_grace_flat_direct"
     empirical_normalization = False
@@ -43,7 +43,7 @@ class GraceFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 @configclass
 class GraceRoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 48
-    max_iterations = 2
+    max_iterations = 2000
     save_interval = 50
     experiment_name = "pos_grace_rough_direct"
     empirical_normalization = False
