@@ -12,6 +12,8 @@ from ..terrain_generator_cfg import TerrainGeneratorCfg
 
 SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
+    color_scheme="height",
+    # show_flat_patches=False,
     # --------------
     size=(8.0, 8.0),
     border_width=20.0,
@@ -29,6 +31,7 @@ SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
             platform_width=3.0,
             border_width=1.0,
             holes=False,
+            flat_patch_sampling={}
         ),
         "pyramid_stairs_inv": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
             proportion=0.2,
@@ -57,6 +60,8 @@ SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
 
 CUBES_SUPSI_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
+    color_scheme="height",
+    # show_flat_patches=False,
     # --------------
     size=(15.0, 15.0),
     border_width=20.0,
