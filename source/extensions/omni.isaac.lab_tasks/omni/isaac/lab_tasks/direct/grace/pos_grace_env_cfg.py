@@ -14,6 +14,7 @@ from omni.isaac.lab.scene import InteractiveSceneCfg
 from omni.isaac.lab.sensors import ContactSensorCfg, RayCasterCfg, patterns
 from omni.isaac.lab.sim import SimulationCfg
 from omni.isaac.lab.terrains import TerrainImporterCfg
+from omni.isaac.lab.terrains.terrain_generator import FlatPatchSamplingCfg
 from omni.isaac.lab.utils import configclass
 
 ##
@@ -145,7 +146,6 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        visual_material=None,
         terrain_generator=CUBES_SUPSI_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
@@ -155,10 +155,10 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        # visual_material=sim_utils.MdlFileCfg(
-        #     mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
-        #     project_uvw=True,
-        # ),
+        visual_material=sim_utils.MdlFileCfg(
+            mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+            project_uvw=True,
+        ),
         debug_vis=False,
     )
 
@@ -176,3 +176,15 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     flat_orientation_reward_scale = 0.0
     feet_air_time_reward_scale = 0.5*1.1
     lin_vel_reward_scale = 1.0*4
+
+    show_flat_patches = True # da passare come args
+    color_scheme = "height" #["height", "random", None]
+    if show_flat_patches:
+        for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
+            sub_terrain_cfg.flat_patch_sampling = {
+                sub_terrain_name: FlatPatchSamplingCfg(num_patches=10, patch_radius=0.5, max_height_diff=0.05)
+            }
+    if color_scheme in ["height", "random"]:
+        terrain.visual_material = None
+
+

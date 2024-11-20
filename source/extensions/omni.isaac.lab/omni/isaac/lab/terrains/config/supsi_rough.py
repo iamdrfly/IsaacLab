@@ -12,7 +12,7 @@ from ..terrain_generator_cfg import TerrainGeneratorCfg
 
 SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
-    color_scheme="height",
+    color_scheme="height", #random o none
     # show_flat_patches=False,
     # --------------
     size=(8.0, 8.0),
