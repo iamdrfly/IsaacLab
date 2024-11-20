@@ -107,10 +107,9 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         simple_heading=True,
         resampling_time_range=(8.0, 8.0),
         debug_vis=True,
-        # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(1., 5.0), pos_y=(1., 5.0), heading=(-math.pi, math.pi)),
-        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
+        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(1., 5.0), pos_y=(1., 5.0), heading=(-math.pi, math.pi)),
+        # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
     )
-    simple_heading = True
 
     # reward scales
     position_tracking_reward_scale  = 10.

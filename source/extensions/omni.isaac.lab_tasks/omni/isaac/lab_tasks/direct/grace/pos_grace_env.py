@@ -116,14 +116,15 @@ class GraceEnv(DirectRLEnv):
         # offset the position command by the current root position
         r = torch.empty(len(env_ids), device=self.device)
 
-        self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.ranges["pos_x"])
-        self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges["pos_y"])
+        self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.pose_command.ranges.pos_x)
+        self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.pose_command.ranges.pos_y)
 
+        #setto il commando nuovo per visualizzazione
         self._pos_command_visualizer.pos_command_w = self.pos_command_w
 
         # self.pos_command_w[env_ids, 2] += self.robot.data.default_root_state[env_ids, 2] #da mettere altezza qui
 
-        if (self.cfg.simple_heading):
+        if (self.cfg.pose_command.simple_heading):
             # set heading command to point towards target
             target_vec = self.pos_command_w[env_ids] - self._robot.data.root_pos_w[env_ids]
             target_direction = torch.atan2(target_vec[:, 1], target_vec[:, 0])
@@ -142,7 +143,8 @@ class GraceEnv(DirectRLEnv):
             )
         else:
             # random heading command
-            self.heading_command_w[env_ids] = r.uniform_(*self.cfg.ranges["heading"])
+            self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
+        self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
 
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
