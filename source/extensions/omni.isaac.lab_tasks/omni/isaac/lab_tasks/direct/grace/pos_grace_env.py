@@ -12,6 +12,7 @@ import omni.isaac.lab.sim as sim_utils
 from hid import device
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
+from omni.isaac.lab.envs.mdp import UniformPose2dCommand
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
 
 from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
@@ -110,6 +111,8 @@ class GraceEnv(DirectRLEnv):
         self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.ranges["pos_x"])
         self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.ranges["pos_y"])
 
+        self._pos_command_visualizer.pos_command_w = self.pos_command_w
+
         # self.pos_command_w[env_ids, 2] += self.robot.data.default_root_state[env_ids, 2] #da mettere altezza qui
 
         if (self.cfg.simple_heading):
@@ -148,6 +151,8 @@ class GraceEnv(DirectRLEnv):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
+            # adding pose command visualizer
+            self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
@@ -388,3 +393,12 @@ class GraceEnv(DirectRLEnv):
         extras["Episode_Termination/base_contact"] = torch.count_nonzero(self.reset_terminated[env_ids]).item()
         extras["Episode_Termination/time_out"] = torch.count_nonzero(self.reset_time_outs[env_ids]).item()
         self.extras["log"].update(extras)
+
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        if isinstance(self.cfg, PosGraceRoughEnvCfg):
+            self._pos_command_visualizer._set_debug_vis_impl(debug_vis)
+
+    def _debug_vis_callback(self, event):
+        # update the markers
+        if isinstance(self.cfg, PosGraceRoughEnvCfg):
+            self._pos_command_visualizer._debug_vis_callback(event)

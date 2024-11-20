@@ -7,6 +7,7 @@ import omni.isaac.lab.envs.mdp as mdp
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.assets import ArticulationCfg
 from omni.isaac.lab.envs import DirectRLEnvCfg
+from omni.isaac.lab.envs.mdp import UniformPose2dCommandCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.scene import InteractiveSceneCfg
@@ -20,7 +21,7 @@ from omni.isaac.lab.utils import configclass
 ##
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
-from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG  # isort: skip
+from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG  # isort: skip
 
 import math
 @configclass
@@ -100,7 +101,15 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
     )
 
-    ranges = {"pos_x": (1.0, 5.0), "pos_y": (1.0, 5.0), "heading":(-math.pi, math.pi)}
+    # ranges = {"pos_x": (1.0, 5.0), "pos_y": (1.0, 5.0), "heading":(-math.pi, math.pi)}
+    pose_command : UniformPose2dCommandCfg = mdp.UniformPose2dCommandCfg(
+        asset_name="robot", #dict key which is associated the robot articulation (ours: robot)
+        simple_heading=True,
+        resampling_time_range=(8.0, 8.0),
+        debug_vis=True,
+        # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(1., 5.0), pos_y=(1., 5.0), heading=(-math.pi, math.pi)),
+        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
+    )
     simple_heading = True
 
     # reward scales
@@ -146,7 +155,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG,
+        terrain_generator=CUBES_SUPSI_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
