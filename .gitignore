@@ -13,7 +13,7 @@
 **/*.usda
 **/*.usdc
 **/*.usdz
-usd/*.usd
+usd/grace.usd
 
 # Python
 .DS_Store
