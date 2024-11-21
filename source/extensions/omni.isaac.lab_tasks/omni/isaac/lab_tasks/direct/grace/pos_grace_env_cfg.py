@@ -180,12 +180,12 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     feet_air_time_reward_scale = 0.5*1.1
     lin_vel_reward_scale = 1.0*4
 
-    show_flat_patches = False # da passare come args
+    show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
-    if show_flat_patches:
-        for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
-            sub_terrain_cfg.flat_patch_sampling = {
-                sub_terrain_name: FlatPatchSamplingCfg(num_patches=10, patch_radius=0.5, max_height_diff=0.05)
-            }
+    # if show_flat_patches:
+    #     for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
+    #         sub_terrain_cfg.flat_patch_sampling = {
+    #             sub_terrain_name: FlatPatchSamplingCfg(num_patches=10, patch_radius=0.5, max_height_diff=0.05)
+    #         }
     if color_scheme in ["height", "random"]:
         terrain.visual_material = None
