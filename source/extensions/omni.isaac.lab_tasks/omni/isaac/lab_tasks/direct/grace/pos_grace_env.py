@@ -12,7 +12,7 @@ import omni.isaac.lab.sim as sim_utils
 from hid import device
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
-from omni.isaac.lab.envs.mdp import UniformPose2dCommand
+from omni.isaac.lab.envs.mdp import UniformPose2dCommand, SupsiTerrainBasedPose2dCommand
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
 
 from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
@@ -181,20 +181,26 @@ class GraceEnv(DirectRLEnv):
             r = torch.empty(len(env_ids), device=self.device)
             self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
 
+        self._pos_command_visualizer.pos_command_w[env_ids] = self.pos_command_w[env_ids]
+        self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
+
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
+
+        self.cfg.terrain.num_envs = self.scene.cfg.num_envs
+        self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
+        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+
         if isinstance(self.cfg, PosGraceRoughEnvCfg):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
             # adding pose command visualizer
-            self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
-        self.cfg.terrain.num_envs = self.scene.cfg.num_envs
-        self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+            # self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
+            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
 
         if self.cfg.show_flat_patches:
             # Configure the flat patches
