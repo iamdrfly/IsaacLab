@@ -9,13 +9,16 @@
 
 import argparse
 import sys
+import os
 
 from omni.isaac.lab.app import AppLauncher
 
 # local imports
 import cli_args  # isort: skip
 
-PATH_WANDB_FOLDER = "/home/lab/IsaacLab/train_wandb"
+
+pwd_path = os.getcwd()
+PATH_WANDB_FOLDER = pwd_path + "/train_wandb"
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
@@ -112,7 +115,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.undesired_contact_reward_scale  = hyperparams["undesired_contact_reward_scale"]  
     env_cfg.stumble_reward_scale            = hyperparams["stumble_reward_scale"]            
     env_cfg.feet_termination_force          = hyperparams["feet_termination_force"]          
-    env_cfg.termination_reward_scale        = hyperparams["termination_reward_scale"]        
+    env_cfg.termination_reward_scale        = hyperparams["termination_reward_scale"]
+    env_cfg.robot.actuators["HAA"].damping[".*"] = hyperparams["haa_damping"]
+    env_cfg.robot.actuators["HFE"].damping[".*"] = hyperparams["hfe_damping"]
+    env_cfg.robot.actuators["KFE"].damping[".*"] = hyperparams["kfe_damping"]
+    env_cfg.robot.actuators["HAA"].stiffness[".*"] = hyperparams["haa_stiffness"]
+    env_cfg.robot.actuators["HFE"].stiffness[".*"] = hyperparams["hfe_stiffness"]
+    env_cfg.robot.actuators["KFE"].stiffness[".*"] = hyperparams["kfe_stiffness"]
 
     # override configurations with non-hydra CLI arguments
     agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
