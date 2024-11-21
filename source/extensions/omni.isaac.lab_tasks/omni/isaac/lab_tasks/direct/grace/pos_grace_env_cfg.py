@@ -7,7 +7,7 @@ import omni.isaac.lab.envs.mdp as mdp
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.assets import ArticulationCfg
 from omni.isaac.lab.envs import DirectRLEnvCfg
-from omni.isaac.lab.envs.mdp import UniformPose2dCommandCfg
+from omni.isaac.lab.envs.mdp import UniformPose2dCommandCfg, TerrainBasedPose2dCommandCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.scene import InteractiveSceneCfg
@@ -106,12 +106,12 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     )
 
     # ranges = {"pos_x": (1.0, 5.0), "pos_y": (1.0, 5.0), "heading":(-math.pi, math.pi)}
-    pose_command : UniformPose2dCommandCfg = mdp.UniformPose2dCommandCfg(
+    pose_command : TerrainBasedPose2dCommandCfg = mdp.TerrainBasedPose2dCommandCfg(
         asset_name="robot", #dict key which is associated the robot articulation (ours: robot)
         simple_heading=True,
         resampling_time_range=(8.0, 8.0),
         debug_vis=True,
-        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(1., 5.0), pos_y=(1., 5.0), heading=(-math.pi, math.pi)),
+        ranges=mdp.TerrainBasedPose2dCommandCfg.Ranges(heading=(-math.pi, math.pi)),
         # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
     )
 
