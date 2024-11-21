@@ -149,6 +149,38 @@ class GraceEnv(DirectRLEnv):
             self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
         self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
 
+    def _resample_command_terrain_based(self, env_ids: Sequence[int]):
+        # sample new position targets from the terrain
+        ids = torch.randint(0, self.valid_targets.shape[2], size=(len(env_ids),), device=self.device)
+
+        self.pos_command_w[env_ids] = self.valid_targets[
+            self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
+        ]
+        # offset the position command by the current root height
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
+
+        if self.cfg.pose_command.simple_heading:
+            # set heading command to point towards target
+            target_vec = self.pos_command_w[env_ids] - self._robot.data.root_pos_w[env_ids]
+            target_direction = torch.atan2(target_vec[:, 1], target_vec[:, 0])
+            flipped_target_direction = wrap_to_pi(target_direction + torch.pi)
+
+            # compute errors to find the closest direction to the current heading
+            # this is done to avoid the discontinuity at the -pi/pi boundary
+            curr_to_target = wrap_to_pi(target_direction - self._robot.data.heading_w[env_ids]).abs()
+            curr_to_flipped_target = wrap_to_pi(flipped_target_direction - self._robot.data.heading_w[env_ids]).abs()
+
+            # set the heading command to the closest direction
+            self.heading_command_w[env_ids] = torch.where(
+                curr_to_target < curr_to_flipped_target,
+                target_direction,
+                flipped_target_direction,
+            )
+        else:
+            # random heading command
+            r = torch.empty(len(env_ids), device=self.device)
+            self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
+
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
@@ -185,6 +217,13 @@ class GraceEnv(DirectRLEnv):
                 all_patch_indices += [i] * num_patch_locations
             # combine the patch locations and indices
             flat_patches_visualizer.visualize(torch.cat(all_patch_locations), marker_indices=all_patch_indices)
+
+        if "target" not in self._terrain.flat_patches:
+            raise RuntimeError(
+                "The terrain-based command generator requires a valid flat patch under 'target' in the terrain."
+                f" Found: {list(self._terrain.flat_patches.keys())}"
+            )
+        self.valid_targets: torch.Tensor = self._terrain.flat_patches["target"]
 
         # clone, filter, and replicate
         self.scene.clone_environments(copy_from_source=False)
@@ -422,7 +461,8 @@ class GraceEnv(DirectRLEnv):
 
         # Sample new commands
         # self._commands[env_ids] = torch.zeros_like(self._commands[env_ids]).uniform_(-1.0, 1.0)
-        self._resample_pose_command(env_ids)
+        # self._resample_pose_command(env_ids)
+        self._resample_command_terrain_based(env_ids)
 
         # Reset robot state
         joint_pos = self._robot.data.default_joint_pos[env_ids]

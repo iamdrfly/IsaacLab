@@ -149,7 +149,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=CUBES_SUPSI_TERRAINS_CFG,
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
