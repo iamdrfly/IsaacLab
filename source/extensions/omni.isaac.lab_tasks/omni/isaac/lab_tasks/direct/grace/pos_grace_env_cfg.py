@@ -144,7 +144,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
 @configclass
 class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     # env
-    observation_space = 235
+    observation_space = 224 #235
 
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
@@ -182,10 +182,6 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
 
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
-    # if show_flat_patches:
-    #     for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
-    #         sub_terrain_cfg.flat_patch_sampling = {
-    #             sub_terrain_name: FlatPatchSamplingCfg(num_patches=10, patch_radius=0.5, max_height_diff=0.05)
-    #         }
+
     if color_scheme in ["height", "random"]:
         terrain.visual_material = None

@@ -85,7 +85,7 @@ class GraceEnv(DirectRLEnv):
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
-        self.pos_command_b = torch.zeros(self.num_envs, 2, device=self.device)
+        self.pos_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_b = torch.zeros_like(self.heading_command_w)
 
         self.error_pos = torch.zeros(self.num_envs, device=self.device)
@@ -255,18 +255,36 @@ class GraceEnv(DirectRLEnv):
 
         self._update_pose_command()
 
+        # obs = torch.cat(
+        #     [
+        #         tensor
+        #         for tensor in (
+        #             self._robot.data.root_lin_vel_b, #3
+        #             self._robot.data.root_ang_vel_b, #3
+        #             self._robot.data.projected_gravity_b, #3
+        #             self.pose_command(), #3
+        #             self._robot.data.joint_pos[:,self._all_joints] - self._robot.data.default_joint_pos[:,self._all_joints], #12
+        #             self._robot.data.joint_vel[:,self._all_joints], #12
+        #             height_data,#187
+        #             self._actions,#12
+        #         )
+        #         if tensor is not None
+        #     ],
+        #     dim=-1,
+        # )
+        #
         obs = torch.cat(
             [
                 tensor
                 for tensor in (
-                    self._robot.data.root_lin_vel_b,
-                    self._robot.data.root_ang_vel_b,
-                    self._robot.data.projected_gravity_b,
-                    self.pose_command(),
-                    self._robot.data.joint_pos - self._robot.data.default_joint_pos,
-                    self._robot.data.joint_vel,
-                    height_data,
-                    self._actions,
+                    self._robot.data.root_lin_vel_b, #3
+                    self._robot.data.root_ang_vel_b, #3
+                    self._robot.data.projected_gravity_b, #3
+                    self._robot.data.joint_pos[:,self._all_joints], #12
+                    self._robot.data.joint_vel[:,self._all_joints], #12
+                    self.pose_command(),  # 3
+                    self._remaining_time(),  # 1
+                    height_data,#187
                 )
                 if tensor is not None
             ],
@@ -423,8 +441,8 @@ class GraceEnv(DirectRLEnv):
 
     def _update_pose_command(self):
         """Re-target the position command to the current root state."""
-        target_vec = self.pos_command_w - self._robot.data.root_pos_w
-        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)[:,:2]
+        target_vec = self.pos_command_w - self._robot.data.root_pos_w[:, :3]
+        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)
         self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
 
     def _update_terrain_curriculum(self, env_ids):
