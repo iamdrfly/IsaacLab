@@ -7,7 +7,7 @@ import omni.isaac.lab.envs.mdp as mdp
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.assets import ArticulationCfg
 from omni.isaac.lab.envs import DirectRLEnvCfg
-from omni.isaac.lab.envs.mdp import UniformPose2dCommandCfg
+from omni.isaac.lab.envs.mdp import UniformPose2dCommandCfg, TerrainBasedPose2dCommandCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.scene import InteractiveSceneCfg
@@ -106,12 +106,12 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     )
 
     # ranges = {"pos_x": (1.0, 5.0), "pos_y": (1.0, 5.0), "heading":(-math.pi, math.pi)}
-    pose_command : UniformPose2dCommandCfg = mdp.UniformPose2dCommandCfg(
+    pose_command : TerrainBasedPose2dCommandCfg = mdp.TerrainBasedPose2dCommandCfg(
         asset_name="robot", #dict key which is associated the robot articulation (ours: robot)
         simple_heading=True,
         resampling_time_range=(8.0, 8.0),
         debug_vis=True,
-        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(1., 5.0), pos_y=(1., 5.0), heading=(-math.pi, math.pi)),
+        ranges=mdp.TerrainBasedPose2dCommandCfg.Ranges(heading=(-math.pi, math.pi)),
         # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
     )
 
@@ -144,12 +144,12 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
 @configclass
 class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     # env
-    observation_space = 235
+    observation_space = 224 #235
 
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=CUBES_SUPSI_TERRAINS_CFG,
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_TERRAINS_CFG,
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -182,10 +182,6 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
 
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
-    if show_flat_patches:
-        for sub_terrain_name, sub_terrain_cfg in terrain.terrain_generator.sub_terrains.items():
-            sub_terrain_cfg.flat_patch_sampling = {
-                sub_terrain_name: FlatPatchSamplingCfg(num_patches=10, patch_radius=0.5, max_height_diff=0.05)
-            }
+
     if color_scheme in ["height", "random"]:
         terrain.visual_material = None

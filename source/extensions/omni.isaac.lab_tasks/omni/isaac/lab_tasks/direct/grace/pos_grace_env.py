@@ -12,7 +12,7 @@ import omni.isaac.lab.sim as sim_utils
 from hid import device
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import DirectRLEnv
-from omni.isaac.lab.envs.mdp import UniformPose2dCommand
+from omni.isaac.lab.envs.mdp import UniformPose2dCommand, SupsiTerrainBasedPose2dCommand
 from omni.isaac.lab.sensors import ContactSensor, RayCaster
 
 from .pos_grace_env_cfg import PosGraceFlatEnvCfg, PosGraceRoughEnvCfg
@@ -85,7 +85,6 @@ class GraceEnv(DirectRLEnv):
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
-        self.pos_command_b = torch.zeros(self.num_envs, 2, device=self.device)
         self.heading_command_b = torch.zeros_like(self.heading_command_w)
 
         self.error_pos = torch.zeros(self.num_envs, device=self.device)
@@ -104,7 +103,8 @@ class GraceEnv(DirectRLEnv):
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
     def _update_pose_metrics(self):
-        self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
+        self.error_pos = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
+        self.error_pos_xy = torch.norm(self.pos_command_w[:,:2] - self._robot.data.root_pos_w[:,:2] , dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
     def _resample_pose_command(self, env_ids: Sequence[int]):
@@ -149,20 +149,58 @@ class GraceEnv(DirectRLEnv):
             self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
         self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
 
+    def _resample_command_terrain_based(self, env_ids: Sequence[int]):
+        # sample new position targets from the terrain
+        ids = torch.randint(0, self.valid_targets.shape[2], size=(len(env_ids),), device=self.device)
+
+        self.pos_command_w[env_ids] = self.valid_targets[
+            self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
+        ]
+        # offset the position command by the current root height
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
+
+        if self.cfg.pose_command.simple_heading:
+            # set heading command to point towards target
+            target_vec = self.pos_command_w[env_ids] - self._robot.data.root_pos_w[env_ids]
+            target_direction = torch.atan2(target_vec[:, 1], target_vec[:, 0])
+            flipped_target_direction = wrap_to_pi(target_direction + torch.pi)
+
+            # compute errors to find the closest direction to the current heading
+            # this is done to avoid the discontinuity at the -pi/pi boundary
+            curr_to_target = wrap_to_pi(target_direction - self._robot.data.heading_w[env_ids]).abs()
+            curr_to_flipped_target = wrap_to_pi(flipped_target_direction - self._robot.data.heading_w[env_ids]).abs()
+
+            # set the heading command to the closest direction
+            self.heading_command_w[env_ids] = torch.where(
+                curr_to_target < curr_to_flipped_target,
+                target_direction,
+                flipped_target_direction,
+            )
+        else:
+            # random heading command
+            r = torch.empty(len(env_ids), device=self.device)
+            self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
+
+        self._pos_command_visualizer.pos_command_w[env_ids] = self.pos_command_w[env_ids]
+        self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
+
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
         self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
         self.scene.sensors["contact_sensor"] = self._contact_sensor
+
+        self.cfg.terrain.num_envs = self.scene.cfg.num_envs
+        self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
+        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+
         if isinstance(self.cfg, PosGraceRoughEnvCfg):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
             # adding pose command visualizer
-            self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
-        self.cfg.terrain.num_envs = self.scene.cfg.num_envs
-        self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+            # self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
+            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
 
         if self.cfg.show_flat_patches:
             # Configure the flat patches
@@ -185,6 +223,13 @@ class GraceEnv(DirectRLEnv):
                 all_patch_indices += [i] * num_patch_locations
             # combine the patch locations and indices
             flat_patches_visualizer.visualize(torch.cat(all_patch_locations), marker_indices=all_patch_indices)
+
+        if "target" not in self._terrain.flat_patches:
+            raise RuntimeError(
+                "The terrain-based command generator requires a valid flat patch under 'target' in the terrain."
+                f" Found: {list(self._terrain.flat_patches.keys())}"
+            )
+        self.valid_targets: torch.Tensor = self._terrain.flat_patches["target"]
 
         # clone, filter, and replicate
         self.scene.clone_environments(copy_from_source=False)
@@ -210,18 +255,36 @@ class GraceEnv(DirectRLEnv):
 
         self._update_pose_command()
 
+        # obs = torch.cat(
+        #     [
+        #         tensor
+        #         for tensor in (
+        #             self._robot.data.root_lin_vel_b, #3
+        #             self._robot.data.root_ang_vel_b, #3
+        #             self._robot.data.projected_gravity_b, #3
+        #             self.pose_command(), #3
+        #             self._robot.data.joint_pos[:,self._all_joints] - self._robot.data.default_joint_pos[:,self._all_joints], #12
+        #             self._robot.data.joint_vel[:,self._all_joints], #12
+        #             height_data,#187
+        #             self._actions,#12
+        #         )
+        #         if tensor is not None
+        #     ],
+        #     dim=-1,
+        # )
+        #
         obs = torch.cat(
             [
                 tensor
                 for tensor in (
-                    self._robot.data.root_lin_vel_b,
-                    self._robot.data.root_ang_vel_b,
-                    self._robot.data.projected_gravity_b,
-                    self.pose_command(),
-                    self._robot.data.joint_pos - self._robot.data.default_joint_pos,
-                    self._robot.data.joint_vel,
-                    height_data,
-                    self._actions,
+                    self._robot.data.root_lin_vel_b, #3
+                    self._robot.data.root_ang_vel_b, #3
+                    self._robot.data.projected_gravity_b, #3
+                    self._robot.data.joint_pos[:,self._all_joints], #12
+                    self._robot.data.joint_vel[:,self._all_joints], #12
+                    self.pose_command(),  # 3
+                    self._remaining_time(),  # 1
+                    height_data,#187
                 )
                 if tensor is not None
             ],
@@ -271,7 +334,8 @@ class GraceEnv(DirectRLEnv):
 
         #XY-Position Tracking
         self._update_pose_metrics()
-        position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_2d), 0.0)
+
+        position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_xy), 0.0)
         # Heading Tracking
         heading_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_heading), 0.0)
         # joint velocity
@@ -318,7 +382,7 @@ class GraceEnv(DirectRLEnv):
         target_vec = self.pos_command_w  - self._robot.data.root_pos_w
         move_in_direction = torch.sum(self._robot.data.root_lin_vel_b * target_vec, dim=-1) / (torch.norm(self._robot.data.root_lin_vel_b, dim=-1) * torch.norm(target_vec, dim=-1)  + 1e-6)
         # Stand at target
-        mask = torch.logical_and(torch.where(self.error_pos_2d <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
+        mask = torch.logical_and(torch.where(self.error_pos_xy <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
         stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:,self._all_joints] - self._robot.data.joint_pos[:,self._all_joints], dim=-1),0)
         # undersired contacts
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
@@ -378,8 +442,8 @@ class GraceEnv(DirectRLEnv):
 
     def _update_pose_command(self):
         """Re-target the position command to the current root state."""
-        target_vec = self.pos_command_w - self._robot.data.root_pos_w
-        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)[:,:2]
+        target_vec = self.pos_command_w - self._robot.data.root_pos_w[:, :3]
+        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)
         self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
 
     def _update_terrain_curriculum(self, env_ids):
@@ -388,7 +452,8 @@ class GraceEnv(DirectRLEnv):
             # don't change on initial reset
             return
 
-        distance_to_goal = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+        distance_to_goal_xy = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+        distance_to_goal = torch.norm(self.pos_command_b[env_ids], dim=1)
 
         move_up = distance_to_goal <= 0.5
         move_down = (distance_to_goal > 1.) * ~move_up
@@ -422,7 +487,8 @@ class GraceEnv(DirectRLEnv):
 
         # Sample new commands
         # self._commands[env_ids] = torch.zeros_like(self._commands[env_ids]).uniform_(-1.0, 1.0)
-        self._resample_pose_command(env_ids)
+        # self._resample_pose_command(env_ids)
+        self._resample_command_terrain_based(env_ids)
 
         # Reset robot state
         joint_pos = self._robot.data.default_joint_pos[env_ids]

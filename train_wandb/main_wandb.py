@@ -5,8 +5,10 @@ import threading
 import wandb
 import logging
 
+
 global_sweep_counter = 0
-PATH_WANDB_FOLDER = "/home/lab/IsaacLab/train_wandb"
+pwd_path = os.getcwd()
+PATH_WANDB_FOLDER = pwd_path + "/train_wandb"
 # Configura il logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -105,7 +107,13 @@ def train():
         "undesired_contact_reward_scale": config.undesired_contact_reward_scale,
         "stumble_reward_scale": config.stumble_reward_scale,
         "feet_termination_force": config.feet_termination_force,
-        "termination_reward_scale": config.termination_reward_scale
+        "termination_reward_scale": config.termination_reward_scale,
+        "haa_stiffness":config.haa_kp,
+        "haa_damping":config.haa_kd,
+        "hfe_stiffness":config.hfe_kp,
+        "hfe_damping":config.hfe_kd,
+        "kfe_stiffness":config.kfe_kp,
+        "kfe_damping":config.kfe_kd,
 
     }
     # Scrive i parametri in hyperisac.txt
@@ -167,8 +175,13 @@ sweep_config = {
         "undesired_contact_reward_scale":{"min": -0.9*10, "max": -0.9},
         "stumble_reward_scale":{"min": -3., "max": -0.9},
         "feet_termination_force":{"min": 1300., "max": 1500.},
-        "termination_reward_scale":{"min": -250., "max": -200.}
-
+        "termination_reward_scale":{"min": -250., "max": -200.},
+        "haa_kp":{"min": 5., "max": 80.},
+        "haa_kd":{"min": 0., "max": 10.},
+        "hfe_kp":{"min": 5., "max": 80.},
+        "hfe_kd":{"min": 0., "max": 10.},
+        "kfe_kp":{"min": 5., "max": 80.},
+        "kfe_kd":{"min": 0., "max": 10.},
     },
 }
 
