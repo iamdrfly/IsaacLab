@@ -104,7 +104,7 @@ class GraceEnv(DirectRLEnv):
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
     def _update_pose_metrics(self):
-        self.error_pos_2d = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
+        self.error_pos_2d = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
     def _resample_pose_command(self, env_ids: Sequence[int]):
