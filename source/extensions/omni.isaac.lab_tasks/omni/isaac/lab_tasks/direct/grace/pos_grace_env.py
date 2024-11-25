@@ -104,7 +104,8 @@ class GraceEnv(DirectRLEnv):
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
     def _update_pose_metrics(self):
-        self.error_pos_2d = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
+        self.error_pos = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
+        self.error_pos_xy = torch.norm(self.pos_command_w[:,:2] - self._robot.data.root_pos_w[:,:2] , dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
     def _resample_pose_command(self, env_ids: Sequence[int]):
@@ -334,7 +335,8 @@ class GraceEnv(DirectRLEnv):
 
         #XY-Position Tracking
         self._update_pose_metrics()
-        position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_2d), 0.0)
+
+        position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_xy), 0.0)
         # Heading Tracking
         heading_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_heading), 0.0)
         # joint velocity
@@ -381,7 +383,7 @@ class GraceEnv(DirectRLEnv):
         target_vec = self.pos_command_w  - self._robot.data.root_pos_w
         move_in_direction = torch.sum(self._robot.data.root_lin_vel_b * target_vec, dim=-1) / (torch.norm(self._robot.data.root_lin_vel_b, dim=-1) * torch.norm(target_vec, dim=-1)  + 1e-6)
         # Stand at target
-        mask = torch.logical_and(torch.where(self.error_pos_2d <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
+        mask = torch.logical_and(torch.where(self.error_pos_xy <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
         stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:,self._all_joints] - self._robot.data.joint_pos[:,self._all_joints], dim=-1),0)
         # undersired contacts
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
@@ -451,7 +453,8 @@ class GraceEnv(DirectRLEnv):
             # don't change on initial reset
             return
 
-        distance_to_goal = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+        distance_to_goal_xy = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+        distance_to_goal = torch.norm(self.pos_command_b[env_ids], dim=1)
 
         move_up = distance_to_goal <= 0.5
         move_down = (distance_to_goal > 1.) * ~move_up
