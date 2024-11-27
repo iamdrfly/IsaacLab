@@ -33,7 +33,7 @@ class LSTM_Helper:
 
     def compute_force(self, press):
         bar = 1.01325
-        vacuum_area = 0.000625 * 9
+        vacuum_area = 0.000625 * 3 # calcolo sul singolo dito, usa 9 se vuoi tutto il piede (num_ventose)
         deltap = bar - press
         deltap_pascal = deltap * 10 ** 5
         forza = deltap_pascal * vacuum_area
