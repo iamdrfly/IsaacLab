@@ -12,7 +12,6 @@
 **/*.usda
 **/*.usdc
 **/*.usdz
-usd/grace.usd
 
 # Python
 .DS_Store
@@ -57,3 +56,5 @@ _build
 **/runs/*
 **/logs/*
 **/recordings/*
+
+usd
