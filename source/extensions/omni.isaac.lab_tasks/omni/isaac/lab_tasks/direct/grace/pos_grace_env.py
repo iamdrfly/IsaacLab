@@ -21,6 +21,7 @@ from collections.abc import Sequence
 
 from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
+import omni.isaac.lab.utils.math as math_utils
 
 cnt = 0
 
@@ -57,21 +58,22 @@ class GraceEnv(DirectRLEnv):
                 "stand_at_target",
                 "undesired_contacts",
                 "stumble",
-                "termination"
+                "termination",
+                "theta_marg_sum"
 
             ]
         }
         # Get specific body indices
         self._base_id, _ = self._contact_sensor.find_bodies("base")
 
-        self._foot_ids = {'lr': self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")[0],
-                          'rf': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
-                          'lf': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
+        self._foot_ids = {'rl': self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")[0],
+                          'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
+                          'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
 
-        self._id_acc_foot = { 'lr': self._robot.find_bodies("LR_FOOT")[0],
-                              'rf': self._robot.find_bodies("RF_FOOT")[0],
-                              'lf': self._robot.find_bodies("LF_FOOT")[0],
+        self._id_acc_foot = { 'rl': self._robot.find_bodies("LR_FOOT")[0],
+                              'fr': self._robot.find_bodies("RF_FOOT")[0],
+                              'fl': self._robot.find_bodies("LF_FOOT")[0],
                               'rr': self._robot.find_bodies("RR_FOOT")[0]}
 
 
@@ -85,14 +87,50 @@ class GraceEnv(DirectRLEnv):
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
+        self.pos_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_b = torch.zeros_like(self.heading_command_w)
 
         self.error_pos = torch.zeros(self.num_envs, device=self.device)
+        self.error_pos_xy = torch.zeros(self.num_envs, device=self.device)
+
         self.error_heading = torch.zeros(self.num_envs, device=self.device)
         self.remaining_time = torch.zeros(self.num_envs, device=self.device)
 
         self.joint_vel_limit = torch.zeros((self.num_envs,len(self._all_joints)), device=self.device)
         self.joint_effort_limit = torch.zeros_like(self.joint_vel_limit )
+
+        self.tot_mass = self._robot.data.default_mass.sum(dim=1).unsqueeze(-1).to(device=self.device)
+
+        self.pos_foot_w = dict()
+        self.foot_in_contact = dict()
+        self.force_w = dict()
+        self.n_gab_w = {}
+        self.check_face = {
+            "fl-fr": ["rr", "rl"],
+            "fr-rr": ["rl", "fl"],
+            "rr-rl": ["fl", "fr"],
+            "rl-fl": ["fr", "rr"],
+            "fl-rr": ["fr", "rl"],
+            "fr-rl": ["fl", "rr"]
+        }
+        self.foot_faces = {
+            "fl-fr": ["fl", "fr"],
+            "fr-rr": ["fr", "rr"],
+            "rr-rl": ["rr", "rl"],
+            "rl-fl": ["rl", "fl"],
+            "fl-rr": ["fl", "rr"],
+            "fr-rl": ["fr", "rl"]
+        }
+        self.mass_times_agilim_dot_n_agab_w = {}
+        self.theta_marg = {}
+        self.a_marg = {}
+        self.is_inside_poly = {}
+
+        self._amarg = 0
+        self._thetamarg = 0
+        self._sumthetamarg = 0
+
+        self.a_gilim_w = 0
 
         for act in self._robot.actuators.keys():
             self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
@@ -198,8 +236,9 @@ class GraceEnv(DirectRLEnv):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
-            # adding pose command visualizer
-            # self._pos_command_visualizer = UniformPose2dCommand(self.cfg.pose_command, self)
+            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
+        elif isinstance(self.cfg, PosGraceFlatEnvCfg):
+            # we add a height scanner for perceptive locomotion
             self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
 
         if self.cfg.show_flat_patches:
@@ -285,6 +324,7 @@ class GraceEnv(DirectRLEnv):
                     self.pose_command(),  # 3
                     self._remaining_time(),  # 1
                     height_data,#187
+                    self._actions
                 )
                 if tensor is not None
             ],
@@ -327,6 +367,229 @@ class GraceEnv(DirectRLEnv):
     def _remaining_time(self):
         self.remaining_time = self.max_episode_length_s - (self.episode_length_buf * (self.cfg.sim.dt * self.cfg.decimation)).squeeze(dim=-1)
 
+
+    def safe_normalize(self, vectors, epsilon=1e-6):
+        norms = torch.linalg.norm(vectors, dim=1, keepdim=True)
+        return vectors / (norms + epsilon)
+
+    def compute_foot_properties(self, name):
+        pos_fingers = self._robot.data.body_pos_w[:, self._foot_ids[name], :]
+        self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
+
+        self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
+
+        forces_foot = torch.zeros([self.num_envs, 3, 3], dtype=torch.float32, device=self.device)
+
+        # Se necessario, aggiungi vacuum forces
+        # forces_foot[:, :, 2] = -self._contact_sensor.data.vacuum_action_force[:, self._foot_ids[name]] * \
+        #                        (self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]] > 0).to(torch.float32)
+
+        forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot)
+        self.force_w[name] = forces_world.mean(dim=1)  # Media delle forze delle dita
+
+    def _theta_marg_and_a_marg(self):
+        # Gravito-inertial acceleration
+        acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
+        ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
+        self.a_gi_w = self._robot.data.GRAVITY_VEC_W - ag_total_w
+
+        # Center of mass
+        self.com_w = torch.sum(
+            self._robot.data.body_pos_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device), dim=1
+        ) / self.tot_mass
+
+        # Foot properties and contacts
+        for name in self._foot_ids.keys():
+            self.compute_foot_properties(name)
+
+        # Cross products for tumbling axes
+        self.n_gab_w = {
+            "fl-fr": torch.cross(self.com_w - self.pos_foot_w["fl"], self.com_w - self.pos_foot_w["fr"], dim=1),
+            "fr-rr": torch.cross(self.com_w - self.pos_foot_w["fr"], self.com_w - self.pos_foot_w["rr"], dim=1),
+            "rr-rl": torch.cross(self.com_w - self.pos_foot_w["rr"], self.com_w - self.pos_foot_w["rl"], dim=1),
+            "rl-fl": torch.cross(self.com_w - self.pos_foot_w["rl"], self.com_w - self.pos_foot_w["fl"], dim=1),
+            "fl-rr": torch.cross(self.com_w - self.pos_foot_w["fl"], self.com_w - self.pos_foot_w["rr"], dim=1),
+            "fr-rl": torch.cross(self.com_w - self.pos_foot_w["fr"], self.com_w - self.pos_foot_w["rl"], dim=1),
+        }
+
+        self.bitmap_contatc = {
+                "fl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,
+                "fr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,
+                "rr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,
+                "rl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,
+                "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0),
+                "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
+                "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
+                "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0),
+                "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
+                "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
+        }
+
+
+        # Normalize tumbling axis vectors
+        for key, value in self.n_gab_w.items():
+            self.n_gab_w[key] = self.safe_normalize(value)
+
+        # Compute mass_times_agilim_dot_n_agab
+        for key, value in self.foot_faces.items():
+            foot_j1 = self.check_face[key][0]
+            foot_j2 = self.check_face[key][1]
+            foot_b = self.foot_faces[key][1]
+            foot_a = self.foot_faces[key][0]
+            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1)
+            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1)
+            self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)  # DA VERIFICARE SEGNO
+
+        # Solve for agilim
+        A = torch.stack([self.n_gab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
+        b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
+        b = b.unsqueeze(2)  # (num_envs, num_faces, 1)
+        if A.shape[1] >= 3:  # Assicura che ci siano almeno 3 vincoli
+            A_pseudo_inv = torch.linalg.pinv(A)  # Calcolo robusto della pseudo-inversa
+            self.a_gilim_w = torch.matmul(A_pseudo_inv, b).squeeze(-1)
+        else:
+            raise ValueError("Numero insufficiente di vincoli per calcolare a_gi,lim.")
+
+        rew_eth = torch.zeros(self.num_envs, device=self.device)
+        rew_amarg = torch.zeros(self.num_envs, device=self.device)
+
+        for key in self.foot_faces.keys():
+            n_agb = self.n_gab_w[key]
+            cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (torch.linalg.norm(n_agb, dim=1) * torch.linalg.norm(self.a_gi_w, dim=1)), -1.0, 1.0)
+            cos_theta_gilim = torch.clip(torch.linalg.norm(self.a_gilim_w, dim=1) / torch.linalg.norm(self.a_gi_w, dim=1), -1.0, 1.0)
+            self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
+            self.a_marg[key] = torch.linalg.norm(self.a_gilim_w, dim=1) - torch.sum(n_agb * self.a_gi_w, dim=1) / torch.linalg.norm(n_agb, dim=1)
+            self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
+            rew_eth[:] += self.theta_marg[key]
+            rew_amarg[:] += self.a_marg[key]
+
+        a_marg_stack        = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
+        theta_marg_stack    = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
+        is_in_poly          = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
+        is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
+
+        mask_active_in_poly = is_in_poly * is_active
+        zeros = torch.zeros(self.num_envs, device=self.device)
+
+        amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
+        theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
+
+        self._amarg         = torch.max(zeros, amin).to(device=self.device)
+        self._thetamarg     = torch.max(zeros, theta_min).to(device=self.device)
+        self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
+
+    # def _theta_marg_and_a_marg(self):
+    #     self.acc_mass_w = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
+    #     self.ag_total_w = self.acc_mass_w.sum(dim=1) / self.tot_mass
+    #     self.a_gi_w = self._robot.data.GRAVITY_VEC_W - self.ag_total_w
+    #     self.com_w = torch.sum(self._robot.data.body_pos_w[:, :, :] * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device), dim=1) / self.tot_mass
+    #
+    #     self.bitmap_contatc = {
+    #         "fl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,
+    #         "fr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,
+    #         "rr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,
+    #         "rl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,
+    #         "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0),
+    #         "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
+    #         "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
+    #         "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0),
+    #         "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
+    #         "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
+    #     }
+    #
+    #     for name in self._foot_ids.keys():
+    #         pos_finger_1_w = self._robot.data.body_pos_w[:, self._foot_ids[name][0], :]
+    #         pos_finger_2_w = self._robot.data.body_pos_w[:, self._foot_ids[name][1], :]
+    #         pos_finger_3_w = self._robot.data.body_pos_w[:, self._foot_ids[name][2], :]
+    #
+    #         self.pos_foot_w[name] = (pos_finger_1_w + pos_finger_2_w + pos_finger_3_w) / 3
+    #
+    #         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
+    #
+    #         force_1_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
+    #         force_2_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
+    #         force_3_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
+    #
+    #         #DA ADD QUI VACUUM FORCE
+    #         # force_1_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][0]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][0]] > 0
+    #         # force_2_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][1]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][1]] > 0
+    #         # force_3_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][2]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][2]] > 0
+    #
+    #         force_1_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][0]], force_1_foot)
+    #         force_2_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][1]], force_2_foot)
+    #         force_3_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][2]], force_3_foot)
+    #
+    #         self.force_w[name] = (force_1_w + force_3_w + force_2_w) / 3
+    #
+    #     self.n_gab_w = {
+    #         "fl-fr": torch.cross(self.com_w-self.pos_foot_w["fl"], self.com_w-self.pos_foot_w["fr"], dim=1),
+    #         "fr-rr": torch.cross(self.com_w-self.pos_foot_w["fr"], self.com_w-self.pos_foot_w["rr"], dim=1),
+    #         "rr-rl": torch.cross(self.com_w-self.pos_foot_w["rr"], self.com_w-self.pos_foot_w["rl"], dim=1),
+    #         "rl-fl": torch.cross(self.com_w-self.pos_foot_w["rl"], self.com_w-self.pos_foot_w["fl"], dim=1),
+    #         "fl-rr": torch.cross(self.com_w-self.pos_foot_w["fl"], self.com_w-self.pos_foot_w["rr"], dim=1),
+    #         "fr-rl": torch.cross(self.com_w-self.pos_foot_w["fr"], self.com_w-self.pos_foot_w["rl"], dim=1),
+    #     }
+    #
+    #     for key, value in self.n_gab_w.items():
+    #         self.n_gab_w[key] = value / torch.norm(value, dim=1, keepdim=True)
+    #
+    #     for key, value in self.foot_faces.items():
+    #         foot_j1 = self.check_face[key][0]
+    #         foot_j2 = self.check_face[key][1]
+    #         foot_b = self.foot_faces[key][1]
+    #         foot_a = self.foot_faces[key][0]
+    #         temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1)
+    #         temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1)
+    #         self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)  # DA VERIFICARE SEGNO
+    #
+    #     A = torch.stack([self.n_gab_w[key] for key in self.foot_faces.keys()], dim=1).to(device=self.device)
+    #     b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.foot_faces.keys()], dim=1).to(device=self.device)
+    #     b = b.unsqueeze(2) # (n_envs, n_faces, 1)
+    #     A_pseudo_inv = torch.linalg.pinv(A)  # (n_envs, 3, n_faces)
+    #     self.a_gilim_w = torch.matmul(A_pseudo_inv, b)  # (n_envs, 3, 1)
+    #     self.a_gilim_w = self.a_gilim_w.squeeze(-1)
+    #
+    #
+    #     rew_eth = torch.zeros(self.num_envs, device=self.device)
+    #     rew_amarg = torch.zeros(self.num_envs, device=self.device)
+    #
+    #     for key in self.foot_faces.keys():
+    #         n_agb = self.n_gab_w[key]
+    #         cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (torch.linalg.norm(n_agb, dim=1) * torch.linalg.norm(self.a_gi_w, dim=1)), -1.0, 1.0)
+    #         cos_theta_gilim = torch.clip(torch.linalg.norm(self.a_gilim_w, dim=1) / torch.linalg.norm(self.a_gi_w, dim=1), -1.0, 1.0)
+    #         self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
+    #         self.a_marg[key] = torch.linalg.norm(self.a_gilim_w, dim=1) - torch.sum(n_agb * self.a_gi_w, dim=1) / torch.linalg.norm(n_agb, dim=1)
+    #         self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
+    #         rew_eth[:] += self.theta_marg[key]
+    #         rew_amarg[:] += self.a_marg[key]
+    #
+    #     # mask = torch.zeros(asset.num_instances, device=asset.device)
+    #     # for key in foot_in_contact.keys():
+    #     #     mask += foot_in_contact[key].to(torch.float)
+    #
+    #     a_marg_stack = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
+    #     theta_marg_stack = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
+    #     is_in_poly = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
+    #     is_active = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
+    #
+    #     mask_active_in_poly = is_in_poly * is_active
+    #     zeros = torch.zeros(self.num_envs, device=self.device)
+    #
+    #     amin = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
+    #     theta_min = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
+    #
+    #     self._amarg = torch.max(zeros, amin).to(device=self.device)
+    #     self._thetamarg = torch.max(zeros, theta_min).to(device=self.device)
+    #     self._sumthetamarg = theta_marg_stack.sum(dim=0).to(device=self.device)
+
+
+    def get_amarg(self):
+        return self._amarg
+    def get_thetamarg(self):
+        return self._thetamarg
+    def get_sumthetamarg(self):
+        return self._sumthetamarg
+
     def _get_rewards(self) -> torch.Tensor:
         cnt = 1
         #compute remaining time
@@ -334,6 +597,8 @@ class GraceEnv(DirectRLEnv):
 
         #XY-Position Tracking
         self._update_pose_metrics()
+
+        self._theta_marg_and_a_marg()
 
         position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_xy), 0.0)
         # Heading Tracking
@@ -393,8 +658,8 @@ class GraceEnv(DirectRLEnv):
         # Termination
         mask_base_collision = torch.max(torch.norm(net_contact_forces[:, :, self._base_id], dim=-1), dim=1)[0] > 1.0
         termination = torch.where(mask_base_collision.squeeze() | combined_mask, 1, 0)
-        # if torch.any(termination>0.):
-        #     print("termination")
+
+        theta_marg_sum = self.get_sumthetamarg()
 
         rewards = {
             "position_tracking_xy":     position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
@@ -413,6 +678,7 @@ class GraceEnv(DirectRLEnv):
             "undesired_contacts":       contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
             "stumble":                  stumble * self.cfg.stumble_reward_scale * self.step_dt,
             "termination":              termination * self.cfg.termination_reward_scale * self.step_dt,
+            "theta_marg_sum":           theta_marg_sum * self.cfg.theta_marg_sum_reward_scale * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging

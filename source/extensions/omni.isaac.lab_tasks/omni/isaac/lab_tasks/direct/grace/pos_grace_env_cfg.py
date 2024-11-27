@@ -22,7 +22,7 @@ from omni.isaac.lab.utils import configclass
 ##
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
-from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG  # isort: skip
+from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG, SUPSI_FLAT_TERRAINS_CFG  # isort: skip
 from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import math
@@ -79,16 +79,34 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
             restitution=0.0,
         ),
     )
+    # terrain = TerrainImporterCfg(
+    #     prim_path="/World/ground",
+    #     terrain_type="plane",
+    #     collision_group=-1,
+    #     physics_material=sim_utils.RigidBodyMaterialCfg(
+    #         friction_combine_mode="multiply",
+    #         restitution_combine_mode="multiply",
+    #         static_friction=1.0,
+    #         dynamic_friction=1.0,
+    #         restitution=0.0,
+    #     ),
+    #     debug_vis=False,
+    # )
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
-        terrain_type="plane",
+        terrain_type="generator",
+        terrain_generator=SUPSI_FLAT_TERRAINS_CFG,
+        max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
             restitution_combine_mode="multiply",
             static_friction=1.0,
             dynamic_friction=1.0,
-            restitution=0.0,
+        ),
+        visual_material=sim_utils.MdlFileCfg(
+            mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+            project_uvw=True,
         ),
         debug_vis=False,
     )
@@ -119,7 +137,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.00001 * 10.
+    joint_torque_reward_scale       = -0.00001 /10
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
     base_acc_reward_scale           = -0.001
@@ -128,7 +146,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     feet_acc_reward_scale           = -0.002
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 600.
-    feet_contact_force_reward_scale = -0.00001 * 10
+    feet_contact_force_reward_scale = -0.00001
     wait_time                       = 0.2
     dont_wait_reward_scale          = -1.
     move_in_direction_reward_scale  = 1.
@@ -139,12 +157,19 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -1.0
     feet_termination_force          = 1300.
     termination_reward_scale        = -200.
+    theta_marg_sum_reward_scale     = 0.0
+
+    show_flat_patches = True # da passare come args
+    color_scheme = "height" #["height", "random", None]
+
+    if color_scheme in ["height", "random"]:
+        terrain.visual_material = None
 
 
 @configclass
 class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     # env
-    observation_space = 224 #235
+    observation_space = 236 #235
 
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",

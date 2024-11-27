@@ -16,6 +16,28 @@ num_patches = 100
 patch_radius = 0.3
 max_height_diff = 0.5
 
+SUPSI_FLAT_TERRAINS_CFG = TerrainGeneratorCfg(
+    curriculum=True,
+    color_scheme="random", #random o none
+    # show_flat_patches=False,
+    # --------------
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=20,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    sub_terrains={
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=1.0,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+    },
+)
+"""Rough terrains configuration."""
+
 SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
     curriculum=True,
     color_scheme="height", #random o none

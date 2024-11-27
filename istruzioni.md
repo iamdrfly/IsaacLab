@@ -65,7 +65,7 @@ Seguendo questi passaggi, sarai in grado di mantenere il tuo fork aggiornato e d
 
 
 ## Delete rami remoti
-git push -d origino nome_del_branch_remoto
+git push -d origin nome_del_branch_remoto
 
 ## Delete rami locali
 git branch -d nome_branch_locale
