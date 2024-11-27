@@ -16,6 +16,9 @@ from omni.isaac.lab.app import AppLauncher
 # local imports
 import cli_args  # isort: skip
 
+pwd_path = os.getcwd()
+
+PATH_WANDB_FOLDER = pwd_path + "/train_wandb"
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
