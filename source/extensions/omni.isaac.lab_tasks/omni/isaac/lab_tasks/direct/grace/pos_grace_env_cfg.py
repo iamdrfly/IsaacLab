@@ -27,6 +27,7 @@ from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import math
 import torch
+from omni.isaac.lab.envs import ViewerCfg
 
 @configclass
 class EventCfg:
@@ -65,6 +66,11 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     observation_space = 48
     state_space = 0
     is_finite_horizon = True
+
+    # camera
+    viewer = ViewerCfg()
+    viewer.eye = (-85, -30, 10)
+    viewer.lookat = (40, 95, 0)
 
     # simulation
     sim: SimulationCfg = SimulationCfg(
