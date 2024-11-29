@@ -191,16 +191,39 @@ def find_flat_patches(
     else:
         origin = torch.tensor(origin, dtype=torch.float, device=device)
 
-    # create ranges for the x and y coordinates around the origin.
-    # The provided ranges are bounded by the mesh's bounding box.
-    x_range = (
-        max(x_range[0] + origin[0].item(), wp_mesh.points.numpy()[:, 0].min()),
+    ##### SUPSI #########
+    # Adjust ranges based on the new union range logic
+    # Adjust ranges based on the new union range logic
+
+    xmin = 1
+    x_range_1 = (
+        max(-x_range[1] + origin[0].item(), wp_mesh.points.numpy()[:, 0].min()),
+        min(-xmin + origin[0].item(), wp_mesh.points.numpy()[:, 0].max()),
+    )
+    x_range_2 = (
+        max(xmin + origin[0].item(), wp_mesh.points.numpy()[:, 0].min()),
         min(x_range[1] + origin[0].item(), wp_mesh.points.numpy()[:, 0].max()),
     )
-    y_range = (
-        max(y_range[0] + origin[1].item(), wp_mesh.points.numpy()[:, 1].min()),
+
+    y_range_1 = (
+        max(-y_range[1] + origin[1].item(), wp_mesh.points.numpy()[:, 1].min()),
+        min(-xmin + origin[1].item(), wp_mesh.points.numpy()[:, 1].max()),
+    )
+    y_range_2 = (
+        max(xmin + origin[1].item(), wp_mesh.points.numpy()[:, 1].min()),
         min(y_range[1] + origin[1].item(), wp_mesh.points.numpy()[:, 1].max()),
     )
+
+    # create ranges for the x and y coordinates around the origin.
+    # The provided ranges are bounded by the mesh's bounding box.
+    # x_range = (
+    #     max(x_range[0] + origin[0].item(), wp_mesh.points.numpy()[:, 0].min()),
+    #     min(x_range[1] + origin[0].item(), wp_mesh.points.numpy()[:, 0].max()),
+    # )
+    # y_range = (
+    #     max(y_range[0] + origin[1].item(), wp_mesh.points.numpy()[:, 1].min()),
+    #     min(y_range[1] + origin[1].item(), wp_mesh.points.numpy()[:, 1].max()),
+    # )
     z_range = (
         z_range[0] + origin[2].item(),
         z_range[1] + origin[2].item(),
@@ -231,8 +254,27 @@ def find_flat_patches(
     iter_count = 0
     while len(points_ids) > 0 and iter_count < 10000:
         # sample points in the 2D region around the origin
-        pos_x = torch.empty(len(points_ids), device=device).uniform_(*x_range)
-        pos_y = torch.empty(len(points_ids), device=device).uniform_(*y_range)
+        # pos_x = torch.empty(len(points_ids), device=device).uniform_(*x_range)
+        # pos_y = torch.empty(len(points_ids), device=device).uniform_(*y_range)
+
+        # Dividi equamente i campioni in quattro quadranti
+        quarter_len = len(points_ids) // 4
+        remainder = len(points_ids) % 4
+
+        # Crea campioni nei quattro quadranti
+        pos_x = torch.cat([
+            torch.empty(quarter_len + (1 if remainder > 0 else 0), device=device).uniform_(*x_range_1),
+            torch.empty(quarter_len + (1 if remainder > 1 else 0), device=device).uniform_(*x_range_2),
+            torch.empty(quarter_len + (1 if remainder > 2 else 0), device=device).uniform_(*x_range_1),
+            torch.empty(quarter_len, device=device).uniform_(*x_range_2),
+        ])
+
+        pos_y = torch.cat([
+            torch.empty(quarter_len + (1 if remainder > 0 else 0), device=device).uniform_(*y_range_1),
+            torch.empty(quarter_len + (1 if remainder > 1 else 0), device=device).uniform_(*y_range_2),
+            torch.empty(quarter_len + (1 if remainder > 2 else 0), device=device).uniform_(*y_range_2),
+            torch.empty(quarter_len, device=device).uniform_(*y_range_1),
+        ])
         flat_patches[points_ids, :2] = torch.stack([pos_x, pos_y], dim=-1)
 
         # define the query points to check validity of the patch

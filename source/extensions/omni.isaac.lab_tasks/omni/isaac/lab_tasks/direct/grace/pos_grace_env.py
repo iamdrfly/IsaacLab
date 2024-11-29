@@ -76,12 +76,12 @@ class GraceEnv(DirectRLEnv):
                               'fl': self._robot.find_bodies("LF_FOOT")[0],
                               'rr': self._robot.find_bodies("RR_FOOT")[0]}
 
-        zero_force_finger = torch.tensor(self.self.num_envs, 3)
-        self._vacuum_force = {  "rl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
-                                "fl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
-                                "rr": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
-                                "fr": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
-        }
+        # zero_force_finger = torch.tensor(self.num_envs, 3)
+        # self._vacuum_force = {  "rl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
+        #                         "fl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
+        #                         "rr": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
+        #                         "fr": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
+        # }
 
 
         # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
@@ -674,23 +674,23 @@ class GraceEnv(DirectRLEnv):
         theta_marg_sum = self.get_sumthetamarg()
 
         rewards = {
-            "position_tracking_xy":     position_tracking_mapped * self.cfg.position_tracking_reward_scale* self.step_dt,
-            "heading_tracking_xy":      heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
-            "dof_vel_l2":               joint_vel * self.cfg.joint_vel_reward_scale * self.step_dt,
-            "dof_torques_l2":           joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
-            "dof_vel_limit":            joint_vel_limit * self.cfg.joint_vel_limit_reward_scale * self.step_dt,
-            "dof_torques_limit":        joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
-            "base_acc":                 base_acc * self.cfg.base_acc_reward_scale * self.step_dt,
-            "feet_acc":                 feet_acc * self.cfg.feet_acc_reward_scale * self.step_dt,
-            "action_rate_l2":           action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
-            "feet_contact_force":       feet_force * self.cfg.feet_contact_force_reward_scale * self.step_dt,
-            "dont_wait":                dont_wait * self.cfg.dont_wait_reward_scale * self.step_dt,
-            "move_in_direction":        move_in_direction * self.cfg.move_in_direction_reward_scale * self.step_dt,
-            "stand_at_target":          stand_at_target * self.cfg.stand_at_target_reward_scale * self.step_dt,
-            "undesired_contacts":       contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
-            "stumble":                  stumble * self.cfg.stumble_reward_scale * self.step_dt,
-            "termination":              termination * self.cfg.termination_reward_scale * self.step_dt,
-            "theta_marg_sum":           theta_marg_sum * self.cfg.theta_marg_sum_reward_scale * self.step_dt,
+            "position_tracking_xy":     position_tracking_mapped    * self.cfg.position_tracking_reward_scale   * self.step_dt,
+            "heading_tracking_xy":      heading_tracking_mapped     * self.cfg.heading_tracking_reward_scale    * self.step_dt,
+            "dof_vel_l2":               joint_vel                   * self.cfg.joint_vel_reward_scale           * self.step_dt,
+            "dof_torques_l2":           joint_torques               * self.cfg.joint_torque_reward_scale        * self.step_dt,
+            "dof_vel_limit":            joint_vel_limit             * self.cfg.joint_vel_limit_reward_scale     * self.step_dt,
+            "dof_torques_limit":        joint_eff_limit             * self.cfg.joint_torque_limit_reward_scale  * self.step_dt,
+            "base_acc":                 base_acc                    * self.cfg.base_acc_reward_scale            * self.step_dt,
+            "feet_acc":                 feet_acc                    * self.cfg.feet_acc_reward_scale            * self.step_dt,
+            "action_rate_l2":           action_rate                 * self.cfg.action_rate_reward_scale         * self.step_dt,
+            "feet_contact_force":       feet_force                  * self.cfg.feet_contact_force_reward_scale  * self.step_dt,
+            "dont_wait":                dont_wait                   * self.cfg.dont_wait_reward_scale           * self.step_dt,
+            "move_in_direction":        move_in_direction           * self.cfg.move_in_direction_reward_scale   * self.step_dt,
+            "stand_at_target":          stand_at_target             * self.cfg.stand_at_target_reward_scale     * self.step_dt,
+            "undesired_contacts":       contacts                    * self.cfg.undesired_contact_reward_scale   * self.step_dt,
+            "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
+            "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
+            "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging
