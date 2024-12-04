@@ -23,6 +23,8 @@ from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import omni.isaac.lab.utils.math as math_utils
 
+import itertools
+
 cnt = 0
 
 class GraceEnv(DirectRLEnv):
@@ -70,7 +72,9 @@ class GraceEnv(DirectRLEnv):
                           'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
                           'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
-
+        self._vacuum_ids = [self._foot_ids[idx] for idx in self._foot_ids.keys()]
+        self._vacuum_name = [idx for idx in self._foot_ids.keys()]
+        self._vacuum_ids = list(itertools.chain.from_iterable(self._vacuum_ids ))
         self._id_acc_foot = { 'rl': self._robot.find_bodies("LR_FOOT")[0],
                               'fr': self._robot.find_bodies("RF_FOOT")[0],
                               'fl': self._robot.find_bodies("LF_FOOT")[0],
@@ -143,6 +147,11 @@ class GraceEnv(DirectRLEnv):
             self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
             self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
+        #definizione degli attributi per le vacuum force
+        self._num_bodies_vacuum = len(self._vacuum_ids)
+        self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
+        self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
+        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
@@ -293,6 +302,7 @@ class GraceEnv(DirectRLEnv):
 
     def _apply_action(self):
         self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
+        self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
         # self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 

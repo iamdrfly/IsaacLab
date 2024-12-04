@@ -55,6 +55,12 @@ class EventCfg:
         },
     )
 
+    # base_external_force_torque = EventTerm(
+    #     func=mdp.apply_external_force_torque, mode="reset",
+    #     params={"asset_cfg": SceneEntityCfg("robot", body_names="base"),
+    #             "force_range": (0.0, 0.0), "torque_range": (-0.0, 0.0),
+    #             }, )
+
 
 @configclass
 class PosGraceFlatEnvCfg(DirectRLEnvCfg):
@@ -140,27 +146,27 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     )
 
     # reward scales
-    position_tracking_reward_scale  = 10. * 1.5
+    position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.00001 * 2/10#*0.000002/0.00001
+    joint_torque_reward_scale       = -0.00001
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
     base_acc_reward_scale           = -0.001
     base_lin_acc_weight             = 1.
     base_ang_acc_weight             = 0.02
-    feet_acc_reward_scale           = -0.002 *1/10
+    feet_acc_reward_scale           = -0.002
     action_rate_reward_scale        = -0.01
-    max_feet_contact_force          = 600. * 400/600
-    feet_contact_force_reward_scale = -0.00001  *10 #/10
+    max_feet_contact_force          = 600.
+    feet_contact_force_reward_scale = -0.00001
     wait_time                       = 0.2
-    dont_wait_reward_scale          = -1. *2
+    dont_wait_reward_scale          = -1.
     move_in_direction_reward_scale  = 1.
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
     stand_at_target_reward_scale    = -0.5
     undesired_contact_reward_scale  = -1.0
-    stumble_reward_scale            = -1.0 * 2
+    stumble_reward_scale            = -1.0
     feet_termination_force          = 1300.
     termination_reward_scale        = -200.
     theta_marg_sum_reward_scale     = 0.
