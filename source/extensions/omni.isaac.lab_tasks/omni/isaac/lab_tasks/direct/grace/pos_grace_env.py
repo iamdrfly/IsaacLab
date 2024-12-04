@@ -294,16 +294,16 @@ class GraceEnv(DirectRLEnv):
         light_cfg.func("/World/Light", light_cfg)
 
     def _pre_physics_step(self, actions: torch.Tensor):
-        self._actions = actions.clone()
-        self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
-        # self._actiond_pos = self._actions[:,:-4]
-        # self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
+        # self._actions = actions.clone()
+        # self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
+        self._actions_pos = self._actions[:,:-4*3]
+        self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
         # ADD FORCE 1/4 Freq di apply action --> CALCOLO DA LSTM
 
     def _apply_action(self):
-        self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
+        # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
+        self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
-        # self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
     def _get_observations(self) -> dict:

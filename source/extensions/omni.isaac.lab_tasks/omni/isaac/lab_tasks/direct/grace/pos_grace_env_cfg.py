@@ -68,7 +68,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     episode_length_s = 6.0
     decimation = 4
     action_scale = 0.5
-    action_space = 12
+    action_space = 12+3*4
     observation_space = 48
     state_space = 0
     is_finite_horizon = True
