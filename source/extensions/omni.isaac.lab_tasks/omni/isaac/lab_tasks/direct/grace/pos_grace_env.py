@@ -23,6 +23,7 @@ from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import omni.isaac.lab.utils.math as math_utils
 
+from vacuum.LSTM_Helper import *
 import itertools
 
 cnt = 0
@@ -41,6 +42,7 @@ class GraceEnv(DirectRLEnv):
         # X/Y linear velocity and yaw angular velocity commands ------------------------------------------------------> da cambiare per POS
         self._commands = torch.zeros(self.num_envs, 3, device=self.device)
 
+        # self._lstm_vacuum =
         # Logging
         self._episode_sums = {
             key: torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
@@ -151,6 +153,10 @@ class GraceEnv(DirectRLEnv):
         self._num_bodies_vacuum = len(self._vacuum_ids)
         self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
         self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
+
+        self._lstm_vacuum = LSTM_Helper()
+        self._vacuum_time = None
+        self._vacuum_old = None
         # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
 
     def pose_command(self) -> torch.Tensor:
@@ -294,16 +300,35 @@ class GraceEnv(DirectRLEnv):
         light_cfg.func("/World/Light", light_cfg)
 
     def _pre_physics_step(self, actions: torch.Tensor):
-        # self._actions = actions.clone()
+        self._actions = actions.clone()
         # self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
         self._actions_pos = self._actions[:,:-4*3]
         self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
+
+        self._action_vacuum = self._actions[:,-4*3:]
+        self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
+        self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
+        self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum<0.5, 0., self._processed_action_vacuum) # voltage
+        contact_time = self._contact_sensor.data.current_contact_time[:, self._vacuum_ids]
+        if self._vacuum_time is None:
+            self._vacuum_time = contact_time
+        if self._vacuum_old is None:
+            self._vacuum_old = contact_time
+
+        mask = torch.logical_and(self._processed_action_vacuum>0., contact_time>0.)
+        self._vacuum_old = torch.where(mask,self._vacuum_old, contact_time)
+        self._vacuum_time = contact_time - self._vacuum_old
+        self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
+        self._forces_vacuum[:,mask,2] = self._lstm_vacuum.predict(self._vacuum_time.tolist(), self._processed_action_vacuum.tolist())
+
+
         # ADD FORCE 1/4 Freq di apply action --> CALCOLO DA LSTM
 
     def _apply_action(self):
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
-        self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
+        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
     def _get_observations(self) -> dict:

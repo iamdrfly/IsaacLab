@@ -13,9 +13,11 @@ import json
 import datetime
 import joblib
 import wandb
+import os
 
-MODEL_PATH = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/lstm.jit"
-SCALER_FILE = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/RobustScaler.save"
+pwd = os.getcwd()
+MODEL_PATH = pwd + "/vacuum/model/mass5-20-best/lstm.jit"
+SCALER_FILE = pwd + "/vacuum/model/mass5-20-best/RobustScaler.save"
 
 class LSTM_Helper:
     def __init__(self):
@@ -42,8 +44,8 @@ class LSTM_Helper:
     def predict(self, time, voltage):
         ## basato su evaluate_model_unseen() di sweep_lstm.ipynb --> prepara dei dati grezzi e li passa al modello
 
-        v = (voltage+1)/6 # trovo df[V]
-
+        # v = (voltage+1)/6 # trovo df[V]
+        v = voltage
         X = pd.DataFrame({'time': time, 'voltage': v}) # crea df per scaler
         X = self.scaler.transform(X) # scaling
         X = self.create_sequences(X)
