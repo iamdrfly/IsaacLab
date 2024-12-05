@@ -320,7 +320,7 @@ class GraceEnv(DirectRLEnv):
         self._vacuum_old = torch.where(mask,self._vacuum_old, contact_time)
         self._vacuum_time = contact_time - self._vacuum_old
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
-        self._forces_vacuum[:,mask,2] = self._lstm_vacuum.predict(self._vacuum_time.tolist(), self._processed_action_vacuum.tolist())
+        self._forces_vacuum[:, :, 2][mask] = self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
 
 
         # ADD FORCE 1/4 Freq di apply action --> CALCOLO DA LSTM
