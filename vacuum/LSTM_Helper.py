@@ -16,10 +16,10 @@ import wandb
 import os
 
 pwd = os.getcwd()
-# MODEL_PATH = pwd + "/vacuum/model/mass5-20-best/lstm.jit"
-# SCALER_FILE = pwd + "/vacuum/model/mass5-20-best/RobustScaler.save"
-MODEL_PATH = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/lstm.jit"
-SCALER_FILE = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/RobustScaler.save"
+MODEL_PATH = pwd + "/vacuum/model/mass5-20-best/lstm.jit"
+SCALER_FILE = pwd + "/vacuum/model/mass5-20-best/RobustScaler.save"
+# MODEL_PATH = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/lstm.jit"
+# SCALER_FILE = "/home/etosin/Documents/IsaacLab_github/vacuum/model/mass5-20-best/RobustScaler.save"
 
 class LSTM_Helper:
     def __init__(self):

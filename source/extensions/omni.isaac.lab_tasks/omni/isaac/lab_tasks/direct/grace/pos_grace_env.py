@@ -151,8 +151,8 @@ class GraceEnv(DirectRLEnv):
 
         #definizione degli attributi per le vacuum force
         self._num_bodies_vacuum = len(self._vacuum_ids)
-        self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
-        self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3))
+        self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
+        self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
 
         self._lstm_vacuum = LSTM_Helper()
         self._vacuum_time = None
@@ -309,7 +309,7 @@ class GraceEnv(DirectRLEnv):
         self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
         self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
         self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
-        self._processed_action_vacuum = torch.where(self._processed_action_vacuum<0.5, 0., self._processed_action_vacuum) # voltage
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
         contact_time = self._contact_sensor.data.current_contact_time[:, self._vacuum_ids]
         if self._vacuum_time is None:
             self._vacuum_time = contact_time
@@ -320,7 +320,7 @@ class GraceEnv(DirectRLEnv):
         self._vacuum_old = torch.where(mask,self._vacuum_old, contact_time)
         self._vacuum_time = contact_time - self._vacuum_old
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
-        self._forces_vacuum[:, :, 2][mask] = self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
+        self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
 
 
         # ADD FORCE 1/4 Freq di apply action --> CALCOLO DA LSTM
@@ -328,7 +328,7 @@ class GraceEnv(DirectRLEnv):
     def _apply_action(self):
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
-        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
+        self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
     def _get_observations(self) -> dict:
