@@ -157,7 +157,6 @@ class GraceEnv(DirectRLEnv):
         self._lstm_vacuum = LSTM_Helper()
         self._vacuum_time = None
         self._vacuum_old = None
-        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
@@ -322,9 +321,6 @@ class GraceEnv(DirectRLEnv):
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
 
-
-        # ADD FORCE 1/4 Freq di apply action --> CALCOLO DA LSTM
-
     def _apply_action(self):
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
@@ -427,9 +423,14 @@ class GraceEnv(DirectRLEnv):
 
         forces_foot = torch.zeros([self.num_envs, 3, 3], dtype=torch.float32, device=self.device)
 
-        # Se necessario, aggiungi vacuum forces
-        # forces_foot[:, :, 2] = -self._contact_sensor.data.vacuum_action_force[:, self._foot_ids[name]] * \
-        #                        (self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]] > 0).to(torch.float32)
+        if name in "rl":
+            forces_foot = self._forces_vacuum[:,:3,:] #[17,18,19]
+        if name in "fr":
+            forces_foot = self._forces_vacuum[:,3:6,:] #[26,27,28]
+        if name in "fl":
+            forces_foot = self._forces_vacuum[:,6:9,:] #[23,24,25]
+        if name in "rr":
+            forces_foot = self._forces_vacuum[:,9:12,:] #[20,21,22]
 
         forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot)
         self.force_w[name] = forces_world.mean(dim=1)  # Media delle forze delle dita
