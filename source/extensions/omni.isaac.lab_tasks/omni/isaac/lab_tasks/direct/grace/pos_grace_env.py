@@ -423,6 +423,7 @@ class GraceEnv(DirectRLEnv):
 
         forces_foot = torch.zeros([self.num_envs, 3, 3], dtype=torch.float32, device=self.device)
 
+        #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
         if name in "rl":
             forces_foot = self._forces_vacuum[:,:3,:] #[17,18,19]
         if name in "fr":

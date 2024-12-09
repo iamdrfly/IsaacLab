@@ -146,30 +146,30 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     )
 
     # reward scales
-    position_tracking_reward_scale  = 10.
-    heading_tracking_reward_scale   = 5.
-    joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.00001
-    joint_vel_limit_reward_scale    = -1.
-    joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001
-    base_lin_acc_weight             = 1.
-    base_ang_acc_weight             = 0.02
-    feet_acc_reward_scale           = -0.002
+    position_tracking_reward_scale  = 13.7
+    heading_tracking_reward_scale   = 5.77
+    joint_vel_reward_scale          = -0.000787
+    joint_torque_reward_scale       = -2.49/10**6
+    joint_vel_limit_reward_scale    = -8.134
+    joint_torque_limit_reward_scale = -0.1767
+    base_acc_reward_scale           = -0.00102
+    base_lin_acc_weight             = 1.090
+    base_ang_acc_weight             = 0.0206
+    feet_acc_reward_scale           = -0.000172
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 600.
-    feet_contact_force_reward_scale = -0.00001
-    wait_time                       = 0.2
-    dont_wait_reward_scale          = -1.
-    move_in_direction_reward_scale  = 1.
-    stand_min_dist                  = 0.25
-    stand_min_ang                   = 0.5
+    feet_contact_force_reward_scale = -8.851/10**6
+    wait_time                       = 0.268
+    dont_wait_reward_scale          = -1.317
+    move_in_direction_reward_scale  = 2.
+    stand_min_dist                  = 0.20
+    stand_min_ang                   = 0.58
     stand_at_target_reward_scale    = -0.5
-    undesired_contact_reward_scale  = -1.0
-    stumble_reward_scale            = -1.0
-    feet_termination_force          = 1300.
-    termination_reward_scale        = -200.
-    theta_marg_sum_reward_scale     = 0.
+    undesired_contact_reward_scale  = -1.56
+    stumble_reward_scale            = -2.93
+    feet_termination_force          = 1455.
+    termination_reward_scale        = -230.
+    theta_marg_sum_reward_scale     = 1.
 
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
