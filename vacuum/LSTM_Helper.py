@@ -56,7 +56,7 @@ class LSTM_Helper:
             # v = (voltage+1)/6 # trovo df[V]
             v = voltage_fl
             X = pd.DataFrame({'time': time_fl, 'voltage': v}) # crea df per scaler
-            X = self.scaler.transform(X) # scaling
+            X = self.scaler.transform(X.values) # scaling
 
             self.buffer[:, :-1, :] = self.buffer[:, 1:, :] #shift
             for idx, z in enumerate(zip(X[:, 0], X[:, 1])): #assigning new element from the dataset
@@ -72,7 +72,7 @@ class LSTM_Helper:
         else:
             v = (voltage+1)/6 # trovo df[V]
             X_df = pd.DataFrame({'time': time, 'voltage': v})  # crea df per scaler
-            X_scaled = self.scaler.transform(X_df)  # scaling
+            X_scaled = self.scaler.transform(X_df.values)  # scaling
             # X_scaled = np.stack((np.array(X_df['time']), np.array(X_df['voltage']))).T #fake scaling
             X = self.create_sequences(X_scaled)
 
