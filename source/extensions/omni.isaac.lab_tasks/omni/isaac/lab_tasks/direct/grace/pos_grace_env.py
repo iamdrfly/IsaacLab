@@ -216,7 +216,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/2.
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
