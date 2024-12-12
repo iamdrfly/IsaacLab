@@ -264,6 +264,8 @@ class GraceEnv(DirectRLEnv):
             # we add a height scanner for perceptive locomotion
             self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
 
+        self._vacuum_visualizer = VisualizationMarkers(self.cfg.vacuum_visualizer)
+
         if self.cfg.show_flat_patches:
             # Configure the flat patches
             vis_cfg = VisualizationMarkersCfg(prim_path="/Visuals/TerrainFlatPatches", markers={})
@@ -527,6 +529,7 @@ class GraceEnv(DirectRLEnv):
         else:
             raise ValueError("Numero insufficiente di vincoli per calcolare a_gi,lim.")
 
+
         rew_eth = torch.zeros(self.num_envs, device=self.device)
         rew_amarg = torch.zeros(self.num_envs, device=self.device)
 
@@ -548,9 +551,16 @@ class GraceEnv(DirectRLEnv):
         mask_active_in_poly = is_in_poly * is_active
         zeros = torch.zeros(self.num_envs, device=self.device)
 
+        if torch.any(mask_active_in_poly):
+            pippo = 1
+
         amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
         theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
 
+        if torch.any(amin):
+            pippo = 1
+        if torch.any(theta_min):
+            pippo = 1
         self._amarg         = torch.max(zeros, amin).to(device=self.device)
         self._thetamarg     = torch.max(zeros, theta_min).to(device=self.device)
         self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)

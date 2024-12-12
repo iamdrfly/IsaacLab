@@ -168,8 +168,8 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     )
 
     # reward scales
-    position_tracking_reward_scale  = 13.7
-    heading_tracking_reward_scale   = 5.77
+    position_tracking_reward_scale  = 15.
+    heading_tracking_reward_scale   = 6.
     joint_vel_reward_scale          = -0.000787
     joint_torque_reward_scale       = -2.49/10**6
     joint_vel_limit_reward_scale    = -8.134
@@ -191,7 +191,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -2.93
     feet_termination_force          = 1455.
     termination_reward_scale        = -230.
-    theta_marg_sum_reward_scale     = 1.
+    theta_marg_sum_reward_scale     = 5.
 
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
