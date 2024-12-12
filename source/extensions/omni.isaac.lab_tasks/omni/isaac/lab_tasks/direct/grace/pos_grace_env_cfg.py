@@ -24,6 +24,7 @@ from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG, SUPSI_FLAT_TERRAINS_CFG  # isort: skip
 from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
+from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 import random
 import math
 import torch
@@ -143,6 +144,27 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         debug_vis=True,
         ranges=mdp.TerrainBasedPose2dCommandCfg.Ranges(heading=(-math.pi, math.pi)),
         # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(5.0, 5.0), pos_y=(0, 0), heading=(0, 0)),
+    )
+
+    vacuum_visualizer : VisualizationMarkersCfg = VisualizationMarkersCfg(
+        prim_path="/Visuals/vacuumMarker",
+        markers={
+            "cylinder_no_contact": sim_utils.CylinderCfg(
+                radius=0.02,
+                height=0.5,
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 0.5, 0.5)), #0-grey
+            ),
+            "cylinder_contact": sim_utils.CylinderCfg(
+                radius=0.02,
+                height=0.5,
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0., 0., 1.)), #1-blu
+            ),
+            "cylinder_vacuum": sim_utils.CylinderCfg(
+                radius=0.02,
+                height=0.5,
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0., 1., 0.)), #2-green
+            )
+        }
     )
 
     # reward scales

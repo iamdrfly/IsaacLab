@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gymnasium as gym
 import torch
+from trimesh.creation import cylinder
 
 import omni.isaac.lab.sim as sim_utils
 from hid import device
@@ -157,6 +158,7 @@ class GraceEnv(DirectRLEnv):
         self._lstm_vacuum = LSTM_Helper()
         self._vacuum_time = None
         self._vacuum_old = None
+        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
 
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
@@ -216,7 +218,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/2.
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -320,6 +322,26 @@ class GraceEnv(DirectRLEnv):
         self._vacuum_time = contact_time - self._vacuum_old
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
+
+
+        if self.sim.has_gui():
+            scales = torch.ones_like(self._forces_vacuum, device=self.device)
+            scales[:, :, 2][mask] = self._forces_vacuum[:, :, 2][mask] / 380 # 380 --> max force from LSTM
+            translations = self._robot.data.body_pos_w[:, self._vacuum_ids, :]
+            translations[:, :, 2][torch.logical_not(mask)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][mask] += -scales[:, :, 2][mask] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            scales = scales.reshape((-1, 3))
+            translations = translations.reshape((-1, 3))
+
+            no_contact_mask = (contact_time==0).flatten()
+            contact_mask = torch.logical_and(contact_time>0, mask==False).flatten()
+            vacuum_mask = mask.flatten()
+            vacuum_indices = torch.ones_like(vacuum_mask, device=self.device).int()
+            vacuum_indices[no_contact_mask] = 0
+            vacuum_indices[contact_mask] = 1
+            vacuum_indices[vacuum_mask] = 2
+
+            self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
 
     def _apply_action(self):
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
@@ -836,11 +858,14 @@ class GraceEnv(DirectRLEnv):
         extras["Episode_Termination/time_out"] = torch.count_nonzero(self.reset_time_outs[env_ids]).item()
         self.extras["log"].update(extras)
 
-    def _set_debug_vis_impl(self, debug_vis: bool):
-        if isinstance(self.cfg, PosGraceRoughEnvCfg):
-            self._pos_command_visualizer._set_debug_vis_impl(debug_vis)
-
-    def _debug_vis_callback(self, event):
-        # update the markers
-        if isinstance(self.cfg, PosGraceRoughEnvCfg):
-            self._pos_command_visualizer._debug_vis_callback(event)
+    # def _set_debug_vis_impl(self, debug_vis: bool):
+    #     if isinstance(self.cfg, PosGraceRoughEnvCfg):
+    #         self._pos_command_visualizer._set_debug_vis_impl(debug_vis)
+    #
+    # def _debug_vis_callback(self, event):
+    #     # update the markers
+    #     if isinstance(self.cfg, PosGraceRoughEnvCfg):
+    #         self._pos_command_visualizer._debug_vis_callback(event)
+    #
+    #         translations = self.scene.env_origins
+    #         self._vacuum_visualizer.visualize()
