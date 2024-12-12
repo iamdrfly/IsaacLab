@@ -420,19 +420,25 @@ class GraceEnv(DirectRLEnv):
         self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
 
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
+        # forces_foot = torch.zeros([self.num_envs, 3, 3], dtype=torch.float32, device=self.device)
 
-        forces_foot = torch.zeros([self.num_envs, 3, 3], dtype=torch.float32, device=self.device)
+        forces_foot = self._contact_sensor.data.net_forces_w[:, self._foot_ids[name], :]
 
         #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
+        vacuum = torch.zeros_like(self._forces_vacuum[:, :3, :], device=self.device)
         if name in "rl":
-            forces_foot = self._forces_vacuum[:,:3,:] #[17,18,19]
+            vacuum = self._forces_vacuum[:, :3, :]#[17,18,19]
         if name in "fr":
-            forces_foot = self._forces_vacuum[:,3:6,:] #[26,27,28]
+            vacuum = self._forces_vacuum[:,3:6,:] #[26,27,28]
         if name in "fl":
-            forces_foot = self._forces_vacuum[:,6:9,:] #[23,24,25]
+            vacuum = self._forces_vacuum[:,6:9,:] #[23,24,25]
         if name in "rr":
-            forces_foot = self._forces_vacuum[:,9:12,:] #[20,21,22]
+            vacuum = self._forces_vacuum[:,9:12,:] #[20,21,22]
 
+        mask = torch.norm(vacuum, dim=-1) > 0.
+        # if torch.any(mask):
+        #     pippo=1
+        forces_foot[mask] = vacuum[mask]
         forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot)
         self.force_w[name] = forces_world.mean(dim=1)  # Media delle forze delle dita
 
