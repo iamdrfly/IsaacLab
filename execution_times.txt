@@ -1,0 +1,16 @@
+_setup_scene: chiamate=1, tempo medio=6.106324 s
+_update_terrain_curriculum: chiamate=240, tempo medio=0.000259 s
+_resample_command_terrain_based: chiamate=240, tempo medio=0.002366 s
+_reset_idx: chiamate=240, tempo medio=0.004571 s
+_update_pose_command: chiamate=242, tempo medio=0.001174 s
+pose_command: chiamate=242, tempo medio=0.000018 s
+_remaining_time: chiamate=481, tempo medio=0.000029 s
+_get_observations: chiamate=242, tempo medio=0.006682 s
+_pre_physics_step: chiamate=239, tempo medio=1.014845 s
+_apply_action: chiamate=956, tempo medio=0.000238 s
+_get_dones: chiamate=239, tempo medio=0.000645 s
+_update_pose_metrics: chiamate=239, tempo medio=0.000382 s
+compute_foot_properties: chiamate=956, tempo medio=0.000664 s
+safe_normalize: chiamate=1434, tempo medio=0.000022 s
+_theta_marg_and_a_marg: chiamate=239, tempo medio=0.009059 s
+_get_rewards: chiamate=239, tempo medio=0.013205 s
