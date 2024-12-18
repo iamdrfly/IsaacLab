@@ -31,6 +31,44 @@ from LSTM_Helper import *
 import itertools
 
 cnt = 0
+cnt_tracktime = 0
+
+import time
+from functools import wraps
+
+# Dizionario globale per registrare i tempi
+execution_times = {}
+call_counts = {}
+
+def track_time(func):
+    """Decoratore per tracciare il tempo di esecuzione di una funzione."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        elapsed_time = time.time() - start_time
+
+        # Nome funzione
+        func_name = func.__name__
+
+        # Aggiorna tempi medi e conteggio
+        if func_name not in execution_times:
+            execution_times[func_name] = 0
+            call_counts[func_name] = 0
+
+        execution_times[func_name] += elapsed_time
+        call_counts[func_name] += 1
+
+        return result
+
+    return wrapper
+
+# Funzione per esportare i tempi medi
+def export_execution_times(filename="execution_times.txt"):
+    with open(filename, "w") as f:
+        for func_name, total_time in execution_times.items():
+            avg_time = total_time / call_counts[func_name]
+            f.write(f"{func_name}: chiamate={call_counts[func_name]}, tempo medio={avg_time:.6f} s\n")
 
 class GraceEnv(DirectRLEnv):
     cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg
@@ -163,14 +201,17 @@ class GraceEnv(DirectRLEnv):
         self._vacuum_old = None
         # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
 
+    # @track_time
     def pose_command(self) -> torch.Tensor:
         return torch.cat([self.pos_command_b, self.heading_command_b.unsqueeze(1)], dim=1)
 
+    # @track_time
     def _update_pose_metrics(self):
         self.error_pos = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
         self.error_pos_xy = torch.norm(self.pos_command_w[:,:2] - self._robot.data.root_pos_w[:,:2] , dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
+    # @track_time
     def _resample_pose_command(self, env_ids: Sequence[int]):
         if cnt == 0:
             return
@@ -213,6 +254,7 @@ class GraceEnv(DirectRLEnv):
             self.heading_command_w[env_ids] = r.uniform_(*self.cfg.pose_command.ranges.heading)
         self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
 
+    # @track_time
     def _resample_command_terrain_based(self, env_ids: Sequence[int]):
         # sample new position targets from the terrain
         ids = torch.randint(0, self.valid_targets.shape[2], size=(len(env_ids),), device=self.device)
@@ -248,6 +290,7 @@ class GraceEnv(DirectRLEnv):
         self._pos_command_visualizer.pos_command_w[env_ids] = self.pos_command_w[env_ids]
         self._pos_command_visualizer.heading_command_w[env_ids] = self.heading_command_w[env_ids]
 
+    # @track_time
     def _setup_scene(self):
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
@@ -305,7 +348,16 @@ class GraceEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+    # @track_time
     def _pre_physics_step(self, actions: torch.Tensor):
+        global cnt_tracktime
+        # cnt_tracktime += 1
+        # print(cnt_tracktime)
+        # if cnt_tracktime == 48*5: #48 each epoch? iteration*decimation*steps?
+        #     import sys
+        #     export_execution_times(filename="/home/lab/IsaacLab/execution_times.txt")
+        #     sys.exit()
+
         self._actions = actions.clone()
         # self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
         self._actions_pos = self._actions[:,:-4*3]
@@ -348,12 +400,14 @@ class GraceEnv(DirectRLEnv):
 
             self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
 
+    # @track_time
     def _apply_action(self):
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
+    # @track_time
     def _get_observations(self) -> dict:
         self._previous_actions = self._actions.clone()
         height_data = None
@@ -403,6 +457,7 @@ class GraceEnv(DirectRLEnv):
         observations = {"policy": obs}
         return observations
 
+    # @track_time
     def _compute_foot_contact(self, contact_sensor, step_dt, foot_ids, min_contacts=2):
         """
         Calcola se ciascun piede è in contatto in base a un numero minimo di punti di contatto attivi.
@@ -434,14 +489,16 @@ class GraceEnv(DirectRLEnv):
 
         return first_contacts, last_air_times
 
+    # @track_time
     def _remaining_time(self):
         self.remaining_time = self.max_episode_length_s - (self.episode_length_buf * (self.cfg.sim.dt * self.cfg.decimation)).squeeze(dim=-1)
 
-
+    # @track_time
     def safe_normalize(self, vectors, epsilon=1e-6):
         norms = torch.linalg.norm(vectors, dim=1, keepdim=True)
         return vectors / (norms + epsilon)
 
+    # @track_time
     def compute_foot_properties(self, name):
         pos_fingers = self._robot.data.body_pos_w[:, self._foot_ids[name], :]
         self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
@@ -469,6 +526,7 @@ class GraceEnv(DirectRLEnv):
         forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot)
         self.force_w[name] = forces_world.mean(dim=1)  # Media delle forze delle dita
 
+    # @track_time
     def _theta_marg_and_a_marg(self):
         # Gravito-inertial acceleration
         acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
@@ -680,6 +738,7 @@ class GraceEnv(DirectRLEnv):
     def get_sumthetamarg(self):
         return self._sumthetamarg
 
+    # @track_time
     def _get_rewards(self) -> torch.Tensor:
         cnt = 1
         #compute remaining time
@@ -776,6 +835,7 @@ class GraceEnv(DirectRLEnv):
             self._episode_sums[key] += value
         return reward
 
+    # @track_time
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
@@ -796,12 +856,14 @@ class GraceEnv(DirectRLEnv):
         died =  torch.logical_or(died,mask)
         return died, time_out
 
+    # @track_time
     def _update_pose_command(self):
         """Re-target the position command to the current root state."""
         target_vec = self.pos_command_w - self._robot.data.root_pos_w[:, :3]
         self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self._robot.data.root_quat_w), target_vec)
         self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self._robot.data.heading_w)
 
+    # @track_time
     def _update_terrain_curriculum(self, env_ids):
         # Implement Terrain curriculum
         if cnt==0:
@@ -825,6 +887,8 @@ class GraceEnv(DirectRLEnv):
             self._terrain.env_origins[env_ids]    = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
         # else:
         #     print("terreno piatto o senza attributo terrain_levels")
+
+    # @track_time
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self._robot._ALL_INDICES
