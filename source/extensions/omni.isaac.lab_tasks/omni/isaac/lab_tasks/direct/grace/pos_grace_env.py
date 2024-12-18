@@ -24,7 +24,10 @@ from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import omni.isaac.lab.utils.math as math_utils
 
-from vacuum.LSTM_Helper import *
+import sys
+sys.path.append("/home/amosca/IsaacLab/vacuum/")
+
+from LSTM_Helper import *
 import itertools
 
 cnt = 0

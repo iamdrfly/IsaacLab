@@ -12,7 +12,7 @@ PATH_WANDB_FOLDER = pwd_path + "/train_wandb"
 # Configura il logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-def synchronized_file_check(file_path, timeout=43200, check_interval=60):
+def synchronized_file_check(file_path, timeout=172800, check_interval=3600):
     """
     Aspetta che un file venga creato entro un timeout specificato (default: 12 ore).
     """
@@ -114,6 +114,7 @@ def train():
         "hfe_damping":config.hfe_kd,
         "kfe_stiffness":config.kfe_kp,
         "kfe_damping":config.kfe_kd,
+        "theta_marg_sum_reward_scale":config.theta_marg_sum_reward_scale,
 
     }
     # Scrive i parametri in hyperisac.txt
@@ -182,11 +183,12 @@ sweep_config = {
         "hfe_kd":{"min": 0., "max": 10.},
         "kfe_kp":{"min": 5., "max": 80.},
         "kfe_kd":{"min": 0., "max": 10.},
+        "theta_marg_sum_reward_scale":{"min": 0., "max": 10.},
     },
 }
 
 # Definiamo lo sweep
-sweep_id = wandb.sweep(sweep_config, project="isaaclab-optimization")
+sweep_id = wandb.sweep(sweep_config, project="isaaclab-optimization-cube")
 
 # Avvio dello sweep
 wandb.agent(sweep_id, function=train, count=10)

@@ -122,6 +122,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env_cfg.robot.actuators["HAA"].stiffness[".*"] = hyperparams["haa_stiffness"]
     env_cfg.robot.actuators["HFE"].stiffness[".*"] = hyperparams["hfe_stiffness"]
     env_cfg.robot.actuators["KFE"].stiffness[".*"] = hyperparams["kfe_stiffness"]
+    env_cfg.theta_marg_sum_reward_scale        = hyperparams["theta_marg_sum_reward_scale"]
 
     # override configurations with non-hydra CLI arguments
     agent_cfg = cli_args.update_rsl_rl_cfg(agent_cfg, args_cli)
