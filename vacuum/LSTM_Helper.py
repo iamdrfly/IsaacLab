@@ -21,11 +21,25 @@ pwd = os.getcwd()
 MODEL_PATH = "/home/amosca/IsaacLab/vacuum/model/mass5-20-best/lstm.jit"
 SCALER_FILE = "/home/amosca/IsaacLab/vacuum/model/mass5-20-best/RobustScaler.save"
 
+class TorchRobustScaler:
+    def __init__(self, center, scale, device=None):
+        self.center = torch.tensor(center, device=device, dtype=torch.float32)
+        self.scale = torch.tensor(scale, device=device, dtype=torch.float32)
+
+    def transform(self, tensor):
+        """Applica la trasformazione: (x - mediana) / IQR"""
+        return (tensor - self.center) / self.scale
+
+    def inverse_transform(self, tensor):
+        """Applica la trasformazione inversa: x * IQR + mediana"""
+        return tensor * self.scale + self.center
+
 class LSTM_Helper:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = torch.jit.load(MODEL_PATH).to(self.device)
-        self.scaler = joblib.load(SCALER_FILE)
+        scaler = joblib.load(SCALER_FILE)
+        self.scaler = TorchRobustScaler(center=scaler.center_, scale=scaler.scale_, device=self.device)
         self.seq_length = 6
         self.num_feet = 12
         self.buffer = None
@@ -59,11 +73,11 @@ class LSTM_Helper:
             if self.buffer is None:
                 self.buffer = torch.zeros((time.shape[0] * time.shape[1], self.seq_length, 2), device=self.device)
 
-            time_voltages = np.stack((time.cpu().flatten(), voltage.cpu().flatten()), axis=1)
+            time_voltages = torch.stack((time.flatten(), voltage.flatten()), dim=1)
             X = self.scaler.transform(time_voltages)  # Scaling
 
             self.buffer[:, :-1, :] = self.buffer[:, 1:, :]  # Shift
-            self.buffer[:, -1, :] = torch.tensor(X, device=self.device)  # Inserimento diretto
+            self.buffer[:, -1, :] = X.clone() # Inserimento diretto
 
             self.model.eval()
             with torch.no_grad():
