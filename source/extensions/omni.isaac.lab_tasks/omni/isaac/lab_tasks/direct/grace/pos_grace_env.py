@@ -102,7 +102,8 @@ class GraceEnv(DirectRLEnv):
                 "undesired_contacts",
                 "stumble",
                 "termination",
-                "theta_marg_sum"
+                "theta_marg_sum",
+                "a_marg"
 
             ]
         }
@@ -521,7 +522,7 @@ class GraceEnv(DirectRLEnv):
         #     pippo=1
         forces_foot[mask] = vacuum[mask]
         forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot)
-        self.force_w[name] = forces_world.mean(dim=1)  # Media delle forze delle dita
+        self.force_w[name] = forces_world.sum(dim=1)
 
     # @track_time
     def _theta_marg_and_a_marg(self):
@@ -562,6 +563,10 @@ class GraceEnv(DirectRLEnv):
                 "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
         }
 
+        is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
+
+        if torch.any(is_active):
+            pippo = 1
 
         # Normalize tumbling axis vectors
         for key, value in self.n_gab_w.items():
@@ -578,6 +583,12 @@ class GraceEnv(DirectRLEnv):
             self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)  # DA VERIFICARE SEGNO
 
         # Solve for agilim
+        for key in self.n_gab_w.keys(): #metto a zero le N_gab che non sono attive
+            mask = torch.logical_not(self.bitmap_contatc[key])
+            self.n_gab_w[key][mask] = torch.zeros((3), device=self.device)
+            self.mass_times_agilim_dot_n_agab_w[key][mask] = 0.
+
+
         A = torch.stack([self.n_gab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
         b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
         b = b.unsqueeze(2)  # (num_envs, num_faces, 1)
@@ -591,25 +602,41 @@ class GraceEnv(DirectRLEnv):
         rew_eth = torch.zeros(self.num_envs, device=self.device)
         rew_amarg = torch.zeros(self.num_envs, device=self.device)
 
+        epsilon = 1e-8  # Piccolo valore per evitare divisioni per zero
+
         for key in self.foot_faces.keys():
             n_agb = self.n_gab_w[key]
-            cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (torch.linalg.norm(n_agb, dim=1) * torch.linalg.norm(self.a_gi_w, dim=1)), -1.0, 1.0)
-            cos_theta_gilim = torch.clip(torch.linalg.norm(self.a_gilim_w, dim=1) / torch.linalg.norm(self.a_gi_w, dim=1), -1.0, 1.0)
+
+            # Calcolo delle norme con aggiunta di epsilon per evitare divisioni per zero
+            norm_n_agb = torch.linalg.norm(n_agb, dim=1) + epsilon
+            norm_a_gi_w = torch.linalg.norm(self.a_gi_w, dim=1) + epsilon
+            norm_a_gilim_w = torch.linalg.norm(self.a_gilim_w, dim=1) + epsilon
+
+            # Calcolo di cos_theta_agi e cos_theta_gilim con denominatore corretto
+            cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
+            cos_theta_gilim = torch.clip(norm_a_gilim_w / norm_a_gi_w, -1.0, 1.0)
+
+            # Calcolo di theta_marg
             self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
-            self.a_marg[key] = torch.linalg.norm(self.a_gilim_w, dim=1) - torch.sum(n_agb * self.a_gi_w, dim=1) / torch.linalg.norm(n_agb, dim=1)
+
+            # Calcolo di a_marg
+            self.a_marg[key] = norm_a_gilim_w - torch.sum(n_agb * self.a_gi_w, dim=1) / norm_n_agb
+
+            # Calcolo di is_inside_poly
             self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
+
+            # Aggiornamento di rew_eth e rew_amarg
             rew_eth[:] += self.theta_marg[key]
             rew_amarg[:] += self.a_marg[key]
 
         a_marg_stack        = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
         theta_marg_stack    = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
         is_in_poly          = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
-        is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
 
         mask_active_in_poly = is_in_poly * is_active
         zeros = torch.zeros(self.num_envs, device=self.device)
 
-        if torch.any(mask_active_in_poly):
+        if torch.any(mask_active_in_poly.sum(dim=0) >= 3):
             pippo = 1
 
         amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
@@ -619,9 +646,18 @@ class GraceEnv(DirectRLEnv):
             pippo = 1
         if torch.any(theta_min):
             pippo = 1
+
+        # #IN ACCORDO CON THESIS CEWEILBEL
         self._amarg         = torch.max(zeros, amin).to(device=self.device)
-        self._thetamarg     = torch.max(zeros, theta_min).to(device=self.device)
+        # self._amarg = a_marg_stack.min(dim=0).values.sum(dim=0).to(device=self.device)
+        # self._thetamarg     = torch.max(zeros, theta_min).to(device=self.device)
+        #
+        # #IN ACCORDO ARTICOLO VALSECCHI
         self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
+
+
+
+
 
     # def _theta_marg_and_a_marg(self):
     #     self.acc_mass_w = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
@@ -807,6 +843,8 @@ class GraceEnv(DirectRLEnv):
 
         theta_marg_sum = self.get_sumthetamarg()
 
+        a_marg = self.get_amarg()
+
         rewards = {
             "position_tracking_xy":     position_tracking_mapped    * self.cfg.position_tracking_reward_scale   * self.step_dt,
             "heading_tracking_xy":      heading_tracking_mapped     * self.cfg.heading_tracking_reward_scale    * self.step_dt,
@@ -825,6 +863,7 @@ class GraceEnv(DirectRLEnv):
             "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
             "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
+            "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging

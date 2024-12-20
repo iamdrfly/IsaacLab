@@ -191,7 +191,8 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -2.93
     feet_termination_force          = 1455.
     termination_reward_scale        = -230.
-    theta_marg_sum_reward_scale     = 5.
+    theta_marg_sum_reward_scale     = 1.
+    a_marg_reward_scale             = 1.
 
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
