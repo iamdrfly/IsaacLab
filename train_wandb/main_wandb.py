@@ -115,6 +115,7 @@ def train():
         "kfe_stiffness":config.kfe_kp,
         "kfe_damping":config.kfe_kd,
         "theta_marg_sum_reward_scale":config.theta_marg_sum_reward_scale,
+        "a_marg_reward_scale":config.a_marg_reward_scale,
 
     }
     # Scrive i parametri in hyperisac.txt
@@ -184,6 +185,7 @@ sweep_config = {
         "kfe_kp":{"min": 5., "max": 80.},
         "kfe_kd":{"min": 0., "max": 10.},
         "theta_marg_sum_reward_scale":{"min": 0., "max": 10.},
+        "a_marg_reward_scale":{"min": 0., "max": 10.},
     },
 }
 
