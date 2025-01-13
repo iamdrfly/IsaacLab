@@ -843,7 +843,8 @@ class GraceEnv(DirectRLEnv):
         stumble     = torch.zeros(self.num_envs, device=self.device)
         combined_mask = torch.zeros(self.num_envs, device=self.device)
         norm_feet_force_dict = dict()
-        good_foot = torch.zeros(self.num_envs, device=self.device)
+        # good_foot = torch.zeros(self.num_envs, device=self.device)
+        good_foot = torch.ones(self.num_envs, device=self.device) *- 1 / 3 * 9.
 
         for foot in self._id_acc_foot.keys():
             #FEET ACC
@@ -863,13 +864,16 @@ class GraceEnv(DirectRLEnv):
 
             #GOOD FOOT 3
             fz_mask = torch.norm(net_forces_b[:, :, 2:], dim=-1) > 1.
-            #
-            mask_contact_no_three = torch.logical_and(fz_mask.float().sum(dim=1) >=1, fz_mask.float().sum(dim=1) <3)
-            penalty = -4 #(fz_mask.float().sum(dim=1)-3)
-            good_foot = torch.where(mask_contact_no_three,penalty,0.)
+            n_finger_in_contact = fz_mask.float().sum(dim=1)
+            good_foot = good_foot + 1/3 * n_finger_in_contact
 
-            mask_contact_three = fz_mask.float().sum(dim=1) == 3
-            good_foot = torch.where(mask_contact_three, good_foot+1., good_foot+0.)
+            # #
+            # mask_contact_no_three = torch.logical_and(fz_mask.float().sum(dim=1) >=1, fz_mask.float().sum(dim=1) <3)
+            # penalty = -4 #(fz_mask.float().sum(dim=1)-3)
+            # good_foot = torch.where(mask_contact_no_three,good_foot+penalty,good_foot+0.)
+            #
+            # mask_contact_three = fz_mask.float().sum(dim=1) == 3
+            # good_foot = torch.where(mask_contact_three, good_foot+1., good_foot+0.)
 
 
 
@@ -903,7 +907,7 @@ class GraceEnv(DirectRLEnv):
 
         a_marg = self.get_amarg()
 
-        mask_moving = torch.norm(self._robot.data.root_lin_vel_b, dim=-1) >= 0.1
+        mask_moving = torch.norm(self._robot.data.root_lin_vel_b, dim=-1) >= 0.2
         three_finger = good_foot*mask_moving.float()
 
 
