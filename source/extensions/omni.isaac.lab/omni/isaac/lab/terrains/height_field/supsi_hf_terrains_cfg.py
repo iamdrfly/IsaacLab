@@ -84,3 +84,40 @@ class SupsiMultiCubeTerrainCfg(HfTerrainBaseCfg):
 
     cube_dim = 20
     overlap = False
+
+@configclass
+class SupsiSingleCubeVerticesTerrainCfg(HfTerrainBaseCfg):
+
+    function = supsi_hf_terrains.supsi_single_cube_vert_terrain
+
+    platform_width: float = 1.0
+    """The width of the square platform at the center of the terrain. Defaults to 1.0."""
+
+    inverted: bool = False
+    """Whether the pyramid is inverted. Defaults to False."""
+
+    difficulty: float = 1.0
+
+    plane_step = 30  # approx since it's 79 total size here
+
+    cube_dim = 20
+    overlap = False
+
+
+@configclass
+class SupsiMultiCubeVerticesTerrainCfg(HfTerrainBaseCfg):
+
+    function = supsi_hf_terrains.supsi_multi_cube_vert_terrain
+
+    platform_width: float = 1.0
+    """The width of the square platform at the center of the terrain. Defaults to 1.0."""
+
+    inverted: bool = False
+    """Whether the pyramid is inverted. Defaults to False."""
+
+    difficulty: float = 1.0
+
+    plane_step = 30 # approx since it's 79 total size here
+
+    cube_dim = 20
+    overlap = False

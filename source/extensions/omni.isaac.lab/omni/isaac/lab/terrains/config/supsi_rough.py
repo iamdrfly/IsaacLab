@@ -133,3 +133,68 @@ CUBES_SUPSI_TERRAINS_CFG = TerrainGeneratorCfg(
     },
 )
 """Rough terrains configuration."""
+
+CUBES_SUPSI_VERT_TERRAINS_CFG = TerrainGeneratorCfg(
+    curriculum=True,
+    color_scheme="height",
+    # show_flat_patches=False,
+    # --------------
+    size=(15.0, 15.0),
+    border_width=20.0,
+    # for faster load, set row=5 and col=8
+    num_rows=10,
+    num_cols=10,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    sub_terrains={
+        "pyramid_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
+            proportion=0.2,
+            step_height_range=(0.05, 0.23),
+            step_width=0.3,
+            platform_width=3.0,
+            border_width=1.0,
+            holes=False,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        "pyramid_stairs_inv": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
+            proportion=0.2,
+            step_height_range=(0.05, 0.23),
+            step_width=0.3,
+            platform_width=3.0,
+            border_width=1.0,
+            holes=False,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        # "boxes": terrain_gen.MeshRandomGridTerrainCfg(
+        #     proportion=0.2, grid_width=0.45, grid_height_range=(0.05, 0.2), platform_width=2.0,
+        #     flat_patch_sampling={
+        #         "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        # ),
+        # "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+        #     proportion=0.2, noise_range=(0.02, 0.10), noise_step=0.02, border_width=0.25,
+        #     flat_patch_sampling={
+        #         "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        # ),
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.2,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        "supsi_single_cube_vert": terrain_gen.SupsiSingleCubeVerticesTerrainCfg(
+            proportion=0.2, cube_dim=35, platform_width=2.0, border_width=1.25, inverted=False,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+
+        "supsi_multi_cube_vert_nearby": terrain_gen.SupsiMultiCubeTerrainCfg(
+            proportion=0.1, cube_dim=30, platform_width=2.0, border_width=1.25, inverted=False, overlap=False,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+
+        "supsi_multi_cube_vert_overlap": terrain_gen.SupsiMultiCubeTerrainCfg(
+            proportion=0.1, cube_dim=30, platform_width=2.0, border_width=1.25, inverted=False, overlap=True,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+    },
+)
+"""Rough terrains configuration."""

@@ -223,6 +223,40 @@ def supsi_single_cube_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.Sups
     # round off the heights to the nearest vertical step
     return np.rint(hf_raw).astype(np.int16)
 
+@height_field_to_mesh
+def supsi_single_cube_vert_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiSingleCubeTerrainCfg) -> np.ndarray:
+    # switch parameters to discrete units
+    # -- horizontal scale
+    width_pixels = int(cfg.size[0] / cfg.horizontal_scale)
+    length_pixels = int(cfg.size[1] / cfg.horizontal_scale)
+    # -- center of the terrain
+    center_x = int(width_pixels / 2)
+    center_y = int(length_pixels / 2)
+
+    hf_raw = np.zeros((width_pixels, length_pixels))
+
+    height_max = int(cfg.size[0] / 2 / cfg.vertical_scale) // 2
+
+    # Scegli un angolo casuale
+    corner = np.random.choice(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
+    if corner == 'top-left':
+        x0, y0 = 0, 0
+    elif corner == 'top-right':
+        x0, y0 = 0, length_pixels - cfg.cube_dim
+    elif corner == 'bottom-left':
+        x0, y0 = width_pixels - cfg.cube_dim, 0
+    elif corner == 'bottom-right':
+        x0, y0 = width_pixels - cfg.cube_dim, length_pixels - cfg.cube_dim
+
+    # Genera il cubo nell'angolo scelto
+    hf_raw[x0:x0 + cfg.cube_dim, y0:y0 + cfg.cube_dim] = height_max * difficulty // 2
+
+    if cfg.inverted is True:
+        hf_raw = -hf_raw
+
+    # round off the heights to the nearest vertical step
+    return np.rint(hf_raw).astype(np.int16)
+
 
 @height_field_to_mesh
 def supsi_multi_cube_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiMultiCubeTerrainCfg) -> np.ndarray:
@@ -306,6 +340,71 @@ def supsi_multi_cube_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.Supsi
     # round off the heights to the nearest vertical step
     return np.rint(hf_raw).astype(np.int16)
 
+@height_field_to_mesh
+def supsi_multi_cube_vert_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiMultiCubeTerrainCfg) -> np.ndarray:
+
+    # switch parameters to discrete units
+    # -- horizontal scale
+    width_pixels = int(cfg.size[0] / cfg.horizontal_scale)
+    length_pixels = int(cfg.size[1] / cfg.horizontal_scale)
+    # -- center of the terrain
+    center_x = int(width_pixels / 2)
+    center_y = int(length_pixels / 2)
+
+    hf_raw = np.zeros((width_pixels, length_pixels))
+    height_max = int(cfg.size[0] / 2 / cfg.vertical_scale) // 2
+
+    corner = np.random.choice(['top-left', 'top-right', 'bottom-left', 'bottom-right'])
+    if corner == 'top-left':
+        x1, y1 = 0, 0
+    elif corner == 'top-right':
+        x1, y1 = 0, length_pixels - cfg.cube_dim
+    elif corner == 'bottom-left':
+        x1, y1 = width_pixels - cfg.cube_dim, 0
+    elif corner == 'bottom-right':
+        x1, y1 = width_pixels - cfg.cube_dim, length_pixels - cfg.cube_dim
+
+    hf_raw[x1:x1 + cfg.cube_dim, y1:y1 + cfg.cube_dim] = height_max * difficulty // 3
+
+    if cfg.overlap:
+        # # overlapping or attached to the first cube
+        x2 = x1 + np.random.randint(-cfg.cube_dim, cfg.cube_dim + 1)
+        y2 = y1 + np.random.randint(-cfg.cube_dim, cfg.cube_dim + 1)
+        x2 = np.clip(x2, 0, width_pixels - cfg.cube_dim)
+        y2 = np.clip(y2, 0, length_pixels - cfg.cube_dim)
+        hf_raw[x2:x2 + cfg.cube_dim, y2:y2 + cfg.cube_dim] = height_max * difficulty // 2
+
+        # overlapping or attached to the second cube
+        x3 = x2 + np.random.randint(-cfg.cube_dim, cfg.cube_dim + 1)
+        y3 = y2 + np.random.randint(-cfg.cube_dim, cfg.cube_dim + 1)
+        x3 = np.clip(x3, 0, width_pixels - cfg.cube_dim)
+        y3 = np.clip(y3, 0, length_pixels - cfg.cube_dim)
+        hf_raw[x3:x3 + cfg.cube_dim, y3:y3 + cfg.cube_dim] = height_max * difficulty
+
+    else:
+        place_horiz = True if np.random.randint(0, 2) == 0 else False
+        if place_horiz:
+            x2 = np.clip(x1 + cfg.cube_dim, 0, width_pixels - cfg.cube_dim)
+            y2 = y1
+        else:
+            y2 = np.clip(y1 + cfg.cube_dim, 0, length_pixels - cfg.cube_dim)
+            x2 = x1
+        hf_raw[x2:x2 + cfg.cube_dim, y2:y2 + cfg.cube_dim] = height_max * difficulty // 2
+
+        place_horiz = True if np.random.randint(0, 2) == 0 else False
+        if place_horiz:
+            x3 = np.clip(x2 + cfg.cube_dim, 0, width_pixels - cfg.cube_dim)
+            y3 = y2
+        else:
+            y3 = np.clip(y2 + cfg.cube_dim, 0, length_pixels - cfg.cube_dim)
+            x3 = x2
+        hf_raw[x3:x3 + cfg.cube_dim, y3:y3 + cfg.cube_dim] = height_max * difficulty
+
+    if cfg.inverted is True:
+        hf_raw = -hf_raw
+
+    # round off the heights to the nearest vertical step
+    return np.rint(hf_raw).astype(np.int16)
 
 @height_field_to_mesh
 def pyramid_stairs_terrain(difficulty: float, cfg: hf_terrains_cfg.HfPyramidStairsTerrainCfg) -> np.ndarray:
