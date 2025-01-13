@@ -30,4 +30,4 @@ from .trimesh import *  # noqa: F401, F403
 from .utils import color_meshes_by_height, create_prim_from_mesh
 
 from .height_field.supsi_hf_terrains import supsi_sloped_terrain
-from .height_field.supsi_hf_terrains_cfg import SupsiSlopedTerrainCfg, SupsiExpTerrainCfg, SupsiSingleCubeTerrainCfg, SupsiMultiCubeTerrainCfg
+from .height_field.supsi_hf_terrains_cfg import *
