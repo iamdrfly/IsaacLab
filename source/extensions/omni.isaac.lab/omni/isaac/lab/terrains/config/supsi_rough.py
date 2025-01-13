@@ -12,7 +12,7 @@ from omni.isaac.lab.terrains.terrain_generator import FlatPatchSamplingCfg
 from ..terrain_generator_cfg import TerrainGeneratorCfg
 
 
-num_patches = 200
+num_patches = 10
 patch_radius = 1.
 max_height_diff = 0.5
 
