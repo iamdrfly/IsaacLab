@@ -1,0 +1,15 @@
+joint_vel_reward_scale=-0.0038443643817540913
+joint_torque_reward_scale=-2.6365124723108776e-06
+joint_vel_limit_reward_scale=-0.4900261030248849
+joint_torque_limit_reward_scale=-0.7193249014758494
+base_acc_reward_scale=-0.008440074870395014
+feet_acc_reward_scale=-0.12538510496255634
+max_feet_contact_force=662.5441688901833
+feet_contact_force_reward_scale=-0.0009624955713025051
+wait_time=0.1385250392499039
+dont_wait_reward_scale=-1.4223686454356936
+move_in_direction_reward_scale=1.58475303876466
+stumble_reward_scale=-1.819069078295314
+feet_termination_force=1441.2402568532782
+termination_reward_scale=-210.52101451594268
+three_finger_reward_scale=0.4033200334972782
