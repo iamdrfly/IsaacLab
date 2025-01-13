@@ -865,11 +865,11 @@ class GraceEnv(DirectRLEnv):
             fz_mask = torch.norm(net_forces_b[:, :, 2:], dim=-1) > 1.
             #
             mask_contact_no_three = torch.logical_and(fz_mask.float().sum(dim=1) >=1, fz_mask.float().sum(dim=1) <3)
-            penalty = (fz_mask.float().sum(dim=1)-3)
+            penalty = -4 #(fz_mask.float().sum(dim=1)-3)
             good_foot = torch.where(mask_contact_no_three,penalty,0.)
 
             mask_contact_three = fz_mask.float().sum(dim=1) == 3
-            good_foot = torch.where(mask_contact_three, good_foot+1.1, good_foot+0.)
+            good_foot = torch.where(mask_contact_three, good_foot+1., good_foot+0.)
 
 
 
