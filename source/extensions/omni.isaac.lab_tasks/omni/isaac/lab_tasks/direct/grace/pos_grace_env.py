@@ -903,7 +903,7 @@ class GraceEnv(DirectRLEnv):
 
         a_marg = self.get_amarg()
 
-        mask_moving = torch.norm(self._robot.data.root_lin_vel_b, dim=-1) >= self.cfg.wait_time
+        mask_moving = torch.norm(self._robot.data.root_lin_vel_b, dim=-1) >= 0.1
         three_finger = good_foot*mask_moving.float()
 
 
