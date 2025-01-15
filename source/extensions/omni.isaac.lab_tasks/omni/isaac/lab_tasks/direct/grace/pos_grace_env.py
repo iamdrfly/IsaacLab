@@ -262,7 +262,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/2
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -844,7 +844,7 @@ class GraceEnv(DirectRLEnv):
         combined_mask = torch.zeros(self.num_envs, device=self.device)
         norm_feet_force_dict = dict()
         # good_foot = torch.zeros(self.num_envs, device=self.device)
-        good_foot = torch.ones(self.num_envs, device=self.device) *- 1 / 3 * 9.
+        good_foot = torch.ones(self.num_envs, device=self.device) *- 1 / 3 * 12.
 
         for foot in self._id_acc_foot.keys():
             #FEET ACC
@@ -908,7 +908,30 @@ class GraceEnv(DirectRLEnv):
         a_marg = self.get_amarg()
 
         mask_moving = torch.norm(self._robot.data.root_lin_vel_b, dim=-1) >= 0.2
+        net_forces_w = self._contact_sensor.data.net_forces_w[:, self._vacuum_ids, :]
+        net_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:, self._vacuum_ids], net_forces_w)
+        fz = torch.norm(net_forces_b[:, :, 2:], dim=-1)
+        fz_mask = torch.norm(net_forces_b[:, :, 2:], dim=-1) > 1.
+        n_finger_in_contact = fz_mask.float().sum(dim=1)
+        #
+        mask_not_moving_and_no_four_contact_feet = torch.logical_and(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < 0.2, n_finger_in_contact  != 12)
+        if torch.any(mask_not_moving_and_no_four_contact_feet):
+            pippo = 1
         three_finger = good_foot*mask_moving.float()
+        three_finger[mask_not_moving_and_no_four_contact_feet] = -1.
+
+        air_time = -self._contact_sensor._data.current_air_time[:, self._vacuum_ids].sum(dim=-1)
+        std = 0.25
+
+        norm_airtime = torch.norm(air_time, p=2)  # Euclidean norm (default)
+        square_airtime = air_time**2
+
+        # Normed Exponential Kernel: exp(-||x|| / std^2)
+        epsilon = 1e-8  # Small value to prevent artifacts
+        normed_exponential = torch.exp(-torch.clamp(norm_airtime, min=epsilon) / (std ** 2))
+
+        # Squared Exponential Kernel: exp(-||x||^2 / (2 * std^2))
+        squared_exponential = torch.exp(-(norm_airtime ** 2) / (2 * std ** 2))
 
 
 
@@ -929,7 +952,7 @@ class GraceEnv(DirectRLEnv):
             "undesired_contacts":       contacts                    * self.cfg.undesired_contact_reward_scale   * self.step_dt,
             "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
-            "three_finger":             three_finger                * self.cfg.three_finger_reward_scale        * self.step_dt,
+            "three_finger":             air_time                * self.cfg.three_finger_reward_scale        * self.step_dt,
             # "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
