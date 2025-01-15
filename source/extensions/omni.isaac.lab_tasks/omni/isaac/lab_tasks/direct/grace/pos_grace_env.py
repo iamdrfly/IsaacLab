@@ -930,7 +930,7 @@ class GraceEnv(DirectRLEnv):
         air_time = -self._contact_sensor._data.current_air_time[:, self._vacuum_ids].sum(dim=-1)
         std = 0.25
 
-        norm_airtime = torch.norm(air_time, p=2)  # Euclidean norm (default)
+        norm_airtime = torch.abs(air_time)  # Euclidean norm (default)
         square_airtime = air_time**2
 
         # Normed Exponential Kernel: exp(-||x|| / std^2)
