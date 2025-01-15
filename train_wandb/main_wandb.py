@@ -177,7 +177,7 @@ sweep_config = {
         "stumble_reward_scale":{"min": -5., "max": -1.},
         "feet_termination_force":{"min": 900., "max": 1500.},
         "termination_reward_scale":{"min": -230., "max": -180.},
-        "three_finger_reward_scale":{"min": 0.1, "max": 1.},
+        "three_finger_reward_scale":{"min": 0.001, "max": 5.},
         # "haa_kp":{"min": 5., "max": 80.},
         # "haa_kd":{"min": 0., "max": 10.},
         # "hfe_kp":{"min": 5., "max": 80.},

@@ -935,10 +935,10 @@ class GraceEnv(DirectRLEnv):
 
         # Normed Exponential Kernel: exp(-||x|| / std^2)
         epsilon = 1e-8  # Small value to prevent artifacts
-        normed_exponential = torch.exp(-torch.clamp(norm_airtime, min=epsilon) / (std ** 2))
+        normed_exponential = -torch.exp(-torch.clamp(norm_airtime, min=epsilon) / (std ** 2))
 
         # Squared Exponential Kernel: exp(-||x||^2 / (2 * std^2))
-        squared_exponential = torch.exp(-(norm_airtime ** 2) / (2 * std ** 2))
+        squared_exponential = -torch.exp(-(norm_airtime ** 2) / (2 * std ** 2))
 
 
 
@@ -959,7 +959,7 @@ class GraceEnv(DirectRLEnv):
             "undesired_contacts":       contacts                    * self.cfg.undesired_contact_reward_scale   * self.step_dt,
             "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
-            "three_finger":             air_time                    * self.cfg.three_finger_reward_scale        * self.step_dt,
+            "three_finger":             normed_exponential          * self.cfg.three_finger_reward_scale        * self.step_dt,
             # "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
