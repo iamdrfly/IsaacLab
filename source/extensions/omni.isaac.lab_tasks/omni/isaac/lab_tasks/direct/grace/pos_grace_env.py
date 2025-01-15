@@ -23,9 +23,16 @@ from collections.abc import Sequence
 from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 import random
 import omni.isaac.lab.utils.math as math_utils
-
-from vacuum.LSTM_Helper import *
 import itertools
+
+# Se usi pc 4 
+# from vacuum.LSTM_Helper import *
+
+# Se usi pc 3 
+import sys
+sys.path.append("/home/amosca/IsaacLab/vacuum/")
+from LSTM_Helper import *
+
 
 cnt = 0
 cnt_tracktime = 0
@@ -952,7 +959,7 @@ class GraceEnv(DirectRLEnv):
             "undesired_contacts":       contacts                    * self.cfg.undesired_contact_reward_scale   * self.step_dt,
             "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
-            "three_finger":             air_time                * self.cfg.three_finger_reward_scale        * self.step_dt,
+            "three_finger":             air_time                    * self.cfg.three_finger_reward_scale        * self.step_dt,
             # "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
