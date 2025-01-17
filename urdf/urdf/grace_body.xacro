@@ -1,0 +1,134 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="grace_body">
+
+<!-- <link name="grace">
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.01 0.01 0.01"/>
+    </geometry>
+  </visual>
+</link> -->
+
+<link name="base">
+  <visual>
+    <origin xyz="+0.27494 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="package://grace_description/meshes/base_visuals.obj"/>
+    </geometry>
+  </visual>
+  <collision>
+    <origin xyz="0. 0.0 -0.0" rpy="0. 1.5707964 0. "/>
+    <geometry>
+      <cylinder radius="0.05" length="0.55"/>
+    </geometry>
+  </collision>
+  <inertial>
+    <origin xyz="-0. -0.00079 0.00911" rpy="0. 0. 0."/>
+    <mass value="13.96311"/>
+    <inertia ixx="0.04749" ixy="0." ixz="0." iyy="0.05665" iyz="0." izz="0.09436"/>
+  </inertial>
+</link>
+
+<!-- <joint name="grace_joint" type="fixed">
+  <origin xyz="0.27 0 0" rpy="0 0 0"/>
+  <parent link="grace"/>
+  <child link="base"/>
+</joint> -->
+
+  <link name="LF_HAA">
+    <inertial>
+      <!-- <origin xyz="-0.06524 0.00426 -0.00006" rpy="0. 0. 0."/> -->
+      <origin xyz="-0. 0. +0.06524" rpy="0. 0. 0."/>
+      <mass value="1.277375"/>
+      <inertia ixx="0.00053" ixy="0." ixz="0." iyy="0.00061" iyz="0." izz="0.00051"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="${-pi} ${pi/2} ${pi}"/>
+      <geometry>
+        <mesh filename="package://grace_description/meshes/grace_RF_HAA_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+  </link>
+
+  <link name="LR_HAA">
+    <inertial>
+      <origin xyz="-0. 0. +0.06524" rpy="0. 0. 0."/>
+      <mass value="1.277375"/>
+      <inertia ixx="0.00053" ixy="0." ixz="0." iyy="0.00061" iyz="0." izz="0.00051"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="${-pi} ${pi/2} ${pi}"/>
+      <geometry>
+        <mesh filename="package://grace_description/meshes/grace_RF_HAA_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+  </link>
+
+  <link name="RR_HAA">
+    <inertial>
+      <origin xyz="-0. 0. +0.06524" rpy="0. 0. 0."/>
+      <mass value="1.277375"/>
+      <inertia ixx="0.00053" ixy="0." ixz="0." iyy="0.00061" iyz="0." izz="0.00051"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="${pi} ${pi/2} 0"/>
+      <geometry>
+        <mesh filename="package://grace_description/meshes/grace_RF_HAA_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+  </link>
+
+  <link name="RF_HAA">
+    <inertial>
+      <origin xyz="-0. 0. +0.06524" rpy="0. 0. 0."/>
+      <mass value="1.277375"/>
+      <inertia ixx="0.00053" ixy="0." ixz="0." iyy="0.00061" iyz="0." izz="0.00051"/>
+    </inertial>
+    <visual>
+      <origin xyz="-0. 0. 0." rpy="${pi} ${pi/2} 0"/>
+      <geometry>
+        <mesh filename="package://grace_description/meshes/grace_RF_HAA_visuals.obj" scale="1. 1. 1."/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="LF_HAA" type="revolute">
+    <!-- <origin xyz="-0.085591 0.17348 0.057" rpy="${pi} 0 0 "/> -->
+    <origin xyz="0.189349 0.17348 0.057" rpy="${pi} 0 0 "/>
+    <parent link="base"/>
+    <child link="LF_HAA"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-110 * pi/180.0}" upper="${70.0 * pi/180.0}" effort="4800." velocity="7.4874625"/>
+    <!-- <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/ -->
+  </joint>
+
+  <joint name="LR_HAA" type="revolute">
+    <!-- <origin xyz="-0.45759 0.17348 0.057" rpy="${pi} 0 0"/> -->
+    <origin xyz="-0.18265 0.17348 0.057" rpy="${pi} 0 0"/>
+    <parent link="base"/>
+    <child link="LR_HAA"/>
+    <axis xyz="0 0 1"/>
+    <!-- <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/> -->
+    <limit lower="${-70.0 * pi/180.0}" upper="${110.0 * pi/180.0}" effort="4800." velocity="7.4874625"/>
+  </joint>
+
+  <joint name="RR_HAA" type="revolute">
+    <origin xyz="-0.18265 -0.17348 0.057" rpy="${pi} 0 0 "/>
+    <parent link="base"/>
+    <child link="RR_HAA"/>
+    <axis xyz="0 0 1"/>
+    <!-- <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/> -->
+    <limit lower="${-110.0 * pi/180.0}" upper="${70.0 * pi/180.0}" effort="4800." velocity="7.4874625"/>
+  </joint>
+
+  <joint name="RF_HAA" type="revolute">
+   <origin xyz="0.189349 -0.17348 0.057" rpy="${pi} 0 0"/>
+   <parent link="base"/>
+   <child link="RF_HAA"/>
+   <axis xyz="0 0 1"/>
+   <!-- <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/> -->
+   <limit lower="${-70.0 * pi/180.0}" upper="${110 * pi/180.0}" effort="4800." velocity="7.4874625"/>
+  </joint>
+
+</robot>

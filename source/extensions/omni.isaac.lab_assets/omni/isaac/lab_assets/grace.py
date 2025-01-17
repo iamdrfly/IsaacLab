@@ -91,13 +91,15 @@ GRACE_SPHERICAL_CFG = DCMotorCfg(
     stiffness={".*": 0.5}, #0.5 gira bene
     damping={".*": .0},
 )
+# /grace/base
+# /grace
 
 
 ##
 # Configuration - Articulation.
 ##
 import os
-usd_path = os.getcwd() + "/usd/grace.usd"
+usd_path = os.getcwd() + "/usd/grace_fixed.usd"
 
 GRACE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
@@ -119,22 +121,39 @@ GRACE_CFG = ArticulationCfg(
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.3),
+        # joint_pos={
+        #     "LF_HAA": -0.7854,  #
+        #     "LF_HFE":  1.5708,  #
+        #     "LF_KFE":  1.5708,  #
+        #
+        #     "LR_HAA":  0.7854,  #
+        #     "LR_HFE":  -1.5708, #
+        #     "LR_KFE":  -1.5708, #
+        #
+        #     "RF_HAA":  0.7854,  #0.7854
+        #     "RF_HFE":  1.5708,  #1.57
+        #     "RF_KFE":  1.5708,  #1.57
+        #
+        #     "RR_HAA": -0.7854,  #-0.7854
+        #     "RR_HFE": -0.7854,  #-0.7854
+        #     "RR_KFE":  0,       #0
+        # },
         joint_pos={
             "LF_HAA": -0.7854,  #
-            "LF_HFE":  1.5708,  #
-            "LF_KFE":  1.5708,  #
+            "LF_HFE": -1.5708,  #
+            "LF_KFE": 1.5708,  #
 
-            "LR_HAA":  0.7854,  #
-            "LR_HFE":  -1.5708, #
-            "LR_KFE":  -1.5708, #
+            "LR_HAA": 0.7854,  #
+            "LR_HFE": +1.5708,  #
+            "LR_KFE": -1.5708,  #
 
-            "RF_HAA":  0.7854,  #0.7854
-            "RF_HFE":  1.5708,  #1.57
-            "RF_KFE":  1.5708,  #1.57
+            "RF_HAA": 0.7854,  # 0.7854
+            "RF_HFE": -1.5708,  # 1.57
+            "RF_KFE": 1.5708,  # 1.57
 
-            "RR_HAA": -0.7854,  #-0.7854
-            "RR_HFE": -0.7854,  #-0.7854
-            "RR_KFE":  0,       #0
+            "RR_HAA": -0.7854,  # -0.7854
+            "RR_HFE": +1.5708,  # -0.7854
+            "RR_KFE": -1.5708,  # 0
         },
     ),
     actuators={"HAA": GRACE_HAA_CFG, "HFE": GRACE_HFE_CFG,"KFE": GRACE_KFE_CFG}, #"sphericals": GRACE_SPHERICAL_CFG

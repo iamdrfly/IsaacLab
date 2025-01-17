@@ -26,12 +26,12 @@ import omni.isaac.lab.utils.math as math_utils
 import itertools
 
 # Se usi pc 4 
-# from vacuum.LSTM_Helper import *
+from vacuum.LSTM_Helper import *
 
 # Se usi pc 3 
-import sys
-sys.path.append("/home/amosca/IsaacLab/vacuum/")
-from LSTM_Helper import *
+# import sys
+# sys.path.append("/home/amosca/IsaacLab/vacuum/")
+# from LSTM_Helper import *
 
 
 cnt = 0
@@ -269,7 +269,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/4
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target

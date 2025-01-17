@@ -132,6 +132,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
 
     # robot
     robot: ArticulationCfg = GRACE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
     )
@@ -201,30 +202,30 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     # reward scales ORIGINALE
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
-    joint_vel_reward_scale          = -0.00010668318601845226
-    joint_torque_reward_scale       = -0.00000271254201546295
-    joint_vel_limit_reward_scale    = -0.92380772014081
-    joint_torque_limit_reward_scale = -0.19606284507671545
-    base_acc_reward_scale           = -0.0007583067139781604
+    joint_vel_reward_scale          = -0.001# -0.00010668318601845226
+    joint_torque_reward_scale       = -0.0002#-0.00001 #-0.00000271254201546295
+    joint_vel_limit_reward_scale    = -1. #-0.92380772014081
+    joint_torque_limit_reward_scale = -0.2 #-0.19606284507671545
+    base_acc_reward_scale           = -0.001 #-0.0007583067139781604*50
     base_lin_acc_weight             = 1.
     base_ang_acc_weight             = 0.02
-    feet_acc_reward_scale           = -0.00003923465505828363
+    feet_acc_reward_scale           = -0.001 #-0.00003923465505828363*10 #-0.002
     action_rate_reward_scale        = -0.01
-    max_feet_contact_force          = 552.361077528126
-    feet_contact_force_reward_scale = -0.0006223812398778339
-    wait_time                       = 0.23956106162545104
-    dont_wait_reward_scale          = -0.9702969436190642
-    move_in_direction_reward_scale  = 1.8555587787242804
+    max_feet_contact_force          = 500. #552.361077528126
+    feet_contact_force_reward_scale = -0.00001#-0.0006223812398778339*10 #-0.00001
+    wait_time                       = 0.2 #0.23956106162545104
+    dont_wait_reward_scale          = -1. #-0.9702969436190642
+    move_in_direction_reward_scale  = 1. #1.8555587787242804
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
     stand_at_target_reward_scale    = -0.5
     undesired_contact_reward_scale  = -1.
-    stumble_reward_scale            = -2.4947543053495105
-    feet_termination_force          = 1267.7973880049433
+    stumble_reward_scale            = -1. #-2.4947543053495105
+    feet_termination_force          = 1500. #1267.7973880049433
     termination_reward_scale        = -226.965509456233
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 0.1 #0.2430034613557589
+    three_finger_reward_scale       = 0. #0.2430034613557589
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
 
