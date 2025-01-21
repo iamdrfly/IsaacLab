@@ -132,6 +132,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
 
     # robot
     robot: ArticulationCfg = GRACE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
     )
@@ -167,60 +168,64 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         }
     )
 
-    # # reward scales
-    # position_tracking_reward_scale  = 15.
-    # heading_tracking_reward_scale   = 6.
-    # joint_vel_reward_scale          = -0.000787
-    # joint_torque_reward_scale       = -2.49/10**6
-    # joint_vel_limit_reward_scale    = -8.134
-    # joint_torque_limit_reward_scale = -0.1767
-    # base_acc_reward_scale           = -0.00102
-    # base_lin_acc_weight             = 1.090
-    # base_ang_acc_weight             = 0.0206
-    # feet_acc_reward_scale           = -0.000172
+    # # reward scales ORIGINALE
+    # position_tracking_reward_scale  = 10.
+    # heading_tracking_reward_scale   = 5.
+    # joint_vel_reward_scale          = -0.001
+    # joint_torque_reward_scale       = -0.00001
+    # joint_vel_limit_reward_scale    = -1.
+    # joint_torque_limit_reward_scale = -0.2
+    # base_acc_reward_scale           = -0.001
+    # base_lin_acc_weight             = 1.
+    # base_ang_acc_weight             = 0.02
+    # feet_acc_reward_scale           = -0.002
     # action_rate_reward_scale        = -0.01
-    # max_feet_contact_force          = 600.
-    # feet_contact_force_reward_scale = -8.851/10**6
-    # wait_time                       = 0.268
-    # dont_wait_reward_scale          = -1.317
-    # move_in_direction_reward_scale  = 2.
-    # stand_min_dist                  = 0.20
-    # stand_min_ang                   = 0.58
+    # max_feet_contact_force          = 700.
+    # feet_contact_force_reward_scale = -0.00001
+    # wait_time                       = 0.2
+    # dont_wait_reward_scale          = -1.
+    # move_in_direction_reward_scale  = 1.
+    # stand_min_dist                  = 0.25
+    # stand_min_ang                   = 0.5
     # stand_at_target_reward_scale    = -0.5
-    # undesired_contact_reward_scale  = -1.56
-    # stumble_reward_scale            = -2.93
-    # feet_termination_force          = 1455.
-    # termination_reward_scale        = -230.
+    # undesired_contact_reward_scale  = -1.
+    # stumble_reward_scale            = -1.
+    # feet_termination_force          = 1500
+    # termination_reward_scale        = -200.
     # theta_marg_sum_reward_scale     = 0.
     # a_marg_reward_scale             = 0.
+    # three_finger_reward_scale       = 0.8
+    # show_flat_patches = True # da passare come args
+    # color_scheme = "height" #["height", "random", None]
 
-    # reward scales
+
+    # reward scales ORIGINALE
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
-    joint_vel_reward_scale          = -0.001/20
-    joint_torque_reward_scale       = -0.00001/20
-    joint_vel_limit_reward_scale    = -1.
-    joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001
+    joint_vel_reward_scale          = -0.001# -0.00010668318601845226
+    joint_torque_reward_scale       = -0.0002#-0.00001 #-0.00000271254201546295
+    joint_vel_limit_reward_scale    = -1. #-0.92380772014081
+    joint_torque_limit_reward_scale = -0.2 #-0.19606284507671545
+    base_acc_reward_scale           = -0.001 #-0.0007583067139781604*50
     base_lin_acc_weight             = 1.
     base_ang_acc_weight             = 0.02
-    feet_acc_reward_scale           = -0.002/20
+    feet_acc_reward_scale           = -0.001 #-0.00003923465505828363*10 #-0.002
     action_rate_reward_scale        = -0.01
-    max_feet_contact_force          = 600. #700.
-    feet_contact_force_reward_scale = -0.00001
-    wait_time                       = 0.2
-    dont_wait_reward_scale          = -1.
-    move_in_direction_reward_scale  = 1.
+    max_feet_contact_force          = 500. #552.361077528126
+    feet_contact_force_reward_scale = -0.00001#-0.0006223812398778339*10 #-0.00001
+    wait_time                       = 0.2 #0.23956106162545104
+    dont_wait_reward_scale          = -1. #-0.9702969436190642
+    move_in_direction_reward_scale  = 1. #1.8555587787242804
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
     stand_at_target_reward_scale    = -0.5
     undesired_contact_reward_scale  = -1.
-    stumble_reward_scale            = -1.
-    feet_termination_force          = 1300. #1500
-    termination_reward_scale        = -200.
+    stumble_reward_scale            = -1. #-2.4947543053495105
+    feet_termination_force          = 1500. #1267.7973880049433
+    termination_reward_scale        = -226.965509456233
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 0.8
+    three_finger_reward_scale       = 0. #0.2430034613557589
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
 
@@ -236,7 +241,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=CUBES_SUPSI_VERT_TERRAINS_CFG, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG
+        terrain_generator=SUPSI_FLAT_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -262,10 +267,10 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
         mesh_prim_paths=["/World/ground"],
     )
 
-    # reward scales (override from flat config)
-    flat_orientation_reward_scale = 0.0
-    feet_air_time_reward_scale = 0.5*1.1
-    lin_vel_reward_scale = 1.0*4
+    # # reward scales (override from flat config)
+    # flat_orientation_reward_scale = 0.0
+    # feet_air_time_reward_scale = 0.5*1.1
+    # lin_vel_reward_scale = 1.0*4
 
     if PosGraceFlatEnvCfg().color_scheme in ["height", "random"]:
         terrain.visual_material = None

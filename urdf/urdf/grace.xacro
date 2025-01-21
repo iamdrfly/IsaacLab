@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="grace">
+
+  <!-- <xacro:include filename="constants.xacro" /> -->
+  <xacro:include filename="leg_left.xacro" />
+  <xacro:include filename="leg_right.xacro" />
+  <xacro:include filename="grace_body.xacro"/>
+
+  <xacro:leg_left prefix="LF" />
+  <xacro:leg_left prefix="LR" />
+  <xacro:leg_right prefix="RR" />
+  <xacro:leg_right prefix="RF" />
+
+ <joint name="LF_HFE" type="revolute">
+   <origin xyz="0 -0.073 0.057" rpy="${pi/2} 0 0"/>
+   <parent link="LF_HAA"/>
+   <child link="LF_HFE"/>
+   <axis xyz="0 0 1"/>
+   <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/>
+ </joint>
+
+ <joint name="LR_HFE" type="revolute">
+   <origin xyz="0 -0.0735 0.057" rpy="${pi/2} 0 0"/>
+   <parent link="LR_HAA"/>
+   <child link="LR_HFE"/>
+   <axis xyz="0 0 1"/>
+   <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/>
+ </joint>
+
+ <joint name="RR_HFE" type="revolute">
+   <origin xyz="0 0.0735 0.057" rpy="${pi/2} 0 0"/>
+   <parent link="RR_HAA"/>
+   <child link="RR_HFE"/>
+   <axis xyz="0 0 1"/>
+   <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/>
+ </joint>
+
+ <joint name="RF_HFE" type="revolute">
+   <origin xyz="0 0.0735 0.057" rpy="${pi/2} 0 0"/>
+   <parent link="RF_HAA"/>
+   <child link="RF_HFE"/>
+   <axis xyz="0 0 1"/>
+   <limit lower="${-pi}" upper="${pi}" effort="4800." velocity="7.4874625"/>
+ </joint>
+
+</robot>
