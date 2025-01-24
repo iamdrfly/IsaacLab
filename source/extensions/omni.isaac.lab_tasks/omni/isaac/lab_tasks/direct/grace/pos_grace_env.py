@@ -118,17 +118,25 @@ class GraceEnv(DirectRLEnv):
         # Get specific body indices
         self._base_id, _ = self._contact_sensor.find_bodies("base")
 
+        self._foot_ids_center = {'rl': self._contact_sensor.find_bodies("LR_FOOT_FINGER_00")[0],
+                          'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER_00")[0],
+                          'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER_00")[0],
+                          'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER_00")[0]}
+
         self._foot_ids = {'rl': self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")[0],
                           'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
                           'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
+
         self._vacuum_ids = [self._foot_ids[idx] for idx in self._foot_ids.keys()]
         self._vacuum_name = [idx for idx in self._foot_ids.keys()]
         self._vacuum_ids = list(itertools.chain.from_iterable(self._vacuum_ids ))
-        self._id_acc_foot = { 'rl': self._robot.find_bodies("LR_FOOT")[0],
-                              'fr': self._robot.find_bodies("RF_FOOT")[0],
-                              'fl': self._robot.find_bodies("LF_FOOT")[0],
-                              'rr': self._robot.find_bodies("RR_FOOT")[0]}
+        self._id_acc_foot = self._foot_ids_center
+        self._foot_ids_center_list = [self._foot_ids_center["rl"],self._foot_ids_center["fr"]]
+
+        self._foot_ids_center_list = [self._foot_ids_center[idx] for idx in self._foot_ids_center.keys()]
+        self._foot_ids_center_list = list(itertools.chain.from_iterable(self._foot_ids_center_list ))
+
 
         # zero_force_finger = torch.tensor(self.num_envs, 3)
         # self._vacuum_force = {  "rl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
@@ -143,7 +151,7 @@ class GraceEnv(DirectRLEnv):
         self._min_finger_contacts = 3
 
         self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
-        self._all_joints, _ = self._robot.find_joints(['^(?!.*_FOOT.*$).*'])
+        self._all_joints, _ = self._robot.find_joints(['^(?!.*(_FOOT|ankle).*).*$'])
 
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
@@ -857,11 +865,13 @@ class GraceEnv(DirectRLEnv):
             #FEET ACC
             feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
             #CONTACT FORCE
-            norm_feet_force_dict[foot] = torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids[foot]], dim=2), dim=-1)
+            if torch.any(torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids_center[foot]], dim=2), dim=-1)>1.):
+                pippo = 1
+            norm_feet_force_dict[foot] = torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids_center[foot]], dim=2), dim=-1)
             feet_force  = feet_force + torch.clamp(norm_feet_force_dict[foot] - self.cfg.max_feet_contact_force, min=0)** 2
             #STUMBLE
-            net_forces_w = self._contact_sensor.data.net_forces_w[:, self._foot_ids[foot], :]
-            net_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._foot_ids[foot]], net_forces_w)
+            net_forces_w = self._contact_sensor.data.net_forces_w[:, self._foot_ids_center[foot], :]
+            net_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._foot_ids_center[foot]], net_forces_w)
             fxy = torch.norm(net_forces_b[:,:, :2], dim=-1)
             fz = torch.norm(net_forces_b[:, :, 2:], dim=-1)
 
@@ -927,7 +937,7 @@ class GraceEnv(DirectRLEnv):
         three_finger = good_foot*mask_moving.float()
         three_finger[mask_not_moving_and_no_four_contact_feet] = -1.
 
-        air_time = -self._contact_sensor._data.current_air_time[:, self._vacuum_ids].sum(dim=-1)
+        air_time = -self._contact_sensor._data.current_air_time[:, self._foot_ids_center_list].sum(dim=-1)
         std = 0.25
 
         norm_airtime = torch.abs(air_time)  # Euclidean norm (default)

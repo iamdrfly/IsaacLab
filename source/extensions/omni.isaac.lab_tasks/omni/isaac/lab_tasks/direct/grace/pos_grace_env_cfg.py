@@ -168,66 +168,66 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         }
     )
 
-    # # reward scales ORIGINALE
+    # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat
     # position_tracking_reward_scale  = 10.
     # heading_tracking_reward_scale   = 5.
     # joint_vel_reward_scale          = -0.001
-    # joint_torque_reward_scale       = -0.00001
+    # joint_torque_reward_scale       = -0.0002
     # joint_vel_limit_reward_scale    = -1.
     # joint_torque_limit_reward_scale = -0.2
-    # base_acc_reward_scale           = -0.001
+    # base_acc_reward_scale           = -0.001/2
     # base_lin_acc_weight             = 1.
-    # base_ang_acc_weight             = 0.02
-    # feet_acc_reward_scale           = -0.002
+    # base_ang_acc_weight             = 0.02*2
+    # feet_acc_reward_scale           = -0.002/20
     # action_rate_reward_scale        = -0.01
-    # max_feet_contact_force          = 700.
-    # feet_contact_force_reward_scale = -0.00001
+    # max_feet_contact_force          = 500
+    # feet_contact_force_reward_scale = -0.00001*10
     # wait_time                       = 0.2
     # dont_wait_reward_scale          = -1.
     # move_in_direction_reward_scale  = 1.
     # stand_min_dist                  = 0.25
     # stand_min_ang                   = 0.5
-    # stand_at_target_reward_scale    = -0.5
+    # stand_at_target_reward_scale    = -2
     # undesired_contact_reward_scale  = -1.
     # stumble_reward_scale            = -1.
-    # feet_termination_force          = 1500
-    # termination_reward_scale        = -200.
+    # feet_termination_force          = 1100
+    # termination_reward_scale        = -230.
     # theta_marg_sum_reward_scale     = 0.
     # a_marg_reward_scale             = 0.
-    # three_finger_reward_scale       = 0.8
+    # three_finger_reward_scale       = 5.
     # show_flat_patches = True # da passare come args
     # color_scheme = "height" #["height", "random", None]
 
-
-    # reward scales ORIGINALE
+    # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
-    joint_vel_reward_scale          = -0.001# -0.00010668318601845226
-    joint_torque_reward_scale       = -0.0002#-0.00001 #-0.00000271254201546295
-    joint_vel_limit_reward_scale    = -1. #-0.92380772014081
-    joint_torque_limit_reward_scale = -0.2 #-0.19606284507671545
-    base_acc_reward_scale           = -0.001 #-0.0007583067139781604*50
+    joint_vel_reward_scale          = -0.001
+    joint_torque_reward_scale       = -0.0002
+    joint_vel_limit_reward_scale    = -1.
+    joint_torque_limit_reward_scale = -0.2
+    base_acc_reward_scale           = -0.001/2
     base_lin_acc_weight             = 1.
-    base_ang_acc_weight             = 0.02
-    feet_acc_reward_scale           = -0.001 #-0.00003923465505828363*10 #-0.002
+    base_ang_acc_weight             = 0.02*2
+    feet_acc_reward_scale           = -0.002/20
     action_rate_reward_scale        = -0.01
-    max_feet_contact_force          = 500. #552.361077528126
-    feet_contact_force_reward_scale = -0.00001#-0.0006223812398778339*10 #-0.00001
-    wait_time                       = 0.2 #0.23956106162545104
-    dont_wait_reward_scale          = -1. #-0.9702969436190642
-    move_in_direction_reward_scale  = 1. #1.8555587787242804
+    max_feet_contact_force          = 500
+    feet_contact_force_reward_scale = -0.00001*10
+    wait_time                       = 0.2
+    dont_wait_reward_scale          = -1.
+    move_in_direction_reward_scale  = 1.
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
-    stand_at_target_reward_scale    = -0.5
+    stand_at_target_reward_scale    = -2
     undesired_contact_reward_scale  = -1.
-    stumble_reward_scale            = -1. #-2.4947543053495105
-    feet_termination_force          = 1500. #1267.7973880049433
-    termination_reward_scale        = -226.965509456233
+    stumble_reward_scale            = -1.
+    feet_termination_force          = 1100
+    termination_reward_scale        = -230.
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 0. #0.2430034613557589
+    three_finger_reward_scale       = 5.
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
+
 
     if color_scheme in ["height", "random"]:
         terrain.visual_material = None
