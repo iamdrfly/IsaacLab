@@ -168,7 +168,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         }
     )
 
-    # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat
+    # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat  /home/lab/IsaacLab/usd/grace_fake_spherical_center.usd
     # position_tracking_reward_scale  = 10.
     # heading_tracking_reward_scale   = 5.
     # joint_vel_reward_scale          = -0.001
@@ -198,20 +198,50 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     # show_flat_patches = True # da passare come args
     # color_scheme = "height" #["height", "random", None]
 
-    # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat
+    # # reward scales CAMMINATA FLAT 27/01/25  /home/lab/IsaacLab/usd/grace_fake_spherical_center_disk.usd log_name=2025-01-27_11-41-12_flat_disk_no_three_finger
+    # position_tracking_reward_scale  = 10.
+    # heading_tracking_reward_scale   = 5.
+    # joint_vel_reward_scale          = -0.001
+    # joint_torque_reward_scale       = -0.0002/10
+    # joint_vel_limit_reward_scale    = -1.
+    # joint_torque_limit_reward_scale = -0.2
+    # base_acc_reward_scale           = -0.001/10
+    # base_lin_acc_weight             = 1.
+    # base_ang_acc_weight             = 0.02
+    # feet_acc_reward_scale           = -0.002/50
+    # action_rate_reward_scale        = -0.01
+    # max_feet_contact_force          = 500
+    # feet_contact_force_reward_scale = -0.00001/10
+    # wait_time                       = 0.2
+    # dont_wait_reward_scale          = -1.
+    # move_in_direction_reward_scale  = 1.
+    # stand_min_dist                  = 0.25
+    # stand_min_ang                   = 0.5
+    # stand_at_target_reward_scale    = -2
+    # undesired_contact_reward_scale  = -1.
+    # stumble_reward_scale            = -1.
+    # feet_termination_force          = 1100
+    # termination_reward_scale        = -230.
+    # theta_marg_sum_reward_scale     = 0.
+    # a_marg_reward_scale             = 0.
+    # three_finger_reward_scale       = 0.
+    # show_flat_patches = True # da passare come args
+    # color_scheme = "height" #["height", "random", None]
+
+
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.0002
+    joint_torque_reward_scale       = -0.0002/(10/2)
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001/2
+    base_acc_reward_scale           = -0.001/10
     base_lin_acc_weight             = 1.
-    base_ang_acc_weight             = 0.02*2
-    feet_acc_reward_scale           = -0.002/20
+    base_ang_acc_weight             = 0.02
+    feet_acc_reward_scale           = -0.002/50
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 500
-    feet_contact_force_reward_scale = -0.00001*10
+    feet_contact_force_reward_scale = -0.00001/10
     wait_time                       = 0.2
     dont_wait_reward_scale          = -1.
     move_in_direction_reward_scale  = 1.
@@ -224,7 +254,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     termination_reward_scale        = -230.
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 5.
+    three_finger_reward_scale       = 0.1*5
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
 
