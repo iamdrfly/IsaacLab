@@ -537,10 +537,17 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def compute_foot_properties(self, name):
-        pos_fingers = self._robot.data.body_pos_w[:, self._foot_ids[name], :]
-        self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
 
-        self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
+        #SE VUOI USARE VERSIONE SENZA CENTRO
+        # pos_fingers = self._robot.data.body_pos_w[:, self._foot_ids[name], :]
+        # self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
+        # self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
+
+        #SE VUOI USAE VERSIONE CON CENTRO
+        self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._foot_ids_center[name], :]
+        self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids_center[name]] > 1.
+
+
 
         # #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
         vacuum = torch.zeros_like(self._forces_vacuum[:, :3, :], device=self.device)
@@ -560,8 +567,7 @@ class GraceEnv(DirectRLEnv):
         forces_foot_w = self._contact_sensor.data.net_forces_w[:, self._foot_ids[name], :] #PERCHE SONO QUELLE RILEVATE DAL SENSORE --> REAZIONE
 
         mask = torch.norm(Fj_b, dim = -1)>1.
-        if torch.any(mask):
-            pippo = 1
+
         Fj_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], Fj_b)
 
         forces_foot_w[mask] = Fj_w[mask]
@@ -616,9 +622,6 @@ class GraceEnv(DirectRLEnv):
         }
 
         is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
-
-        if torch.any(is_active):
-            pippo = 1
 
         # Normalize tumbling axis vectors
         for key, value in self.n_gab_w.items():
@@ -688,16 +691,8 @@ class GraceEnv(DirectRLEnv):
         mask_active_in_poly = is_in_poly * is_active
         zeros = torch.zeros(self.num_envs, device=self.device)
 
-        if torch.any(mask_active_in_poly.sum(dim=0) >= 3):
-            pippo = 1
-
         amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
         theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
-
-        if torch.any(amin):
-            pippo = 1
-        if torch.any(theta_min):
-            pippo = 1
 
         # #IN ACCORDO CON THESIS CEWEILBEL
         self._amarg         = torch.max(zeros, amin).to(device=self.device)
@@ -865,8 +860,6 @@ class GraceEnv(DirectRLEnv):
             #FEET ACC
             feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
             #CONTACT FORCE
-            if torch.any(torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids_center[foot]], dim=2), dim=-1)>1.):
-                pippo = 1
             norm_feet_force_dict[foot] = torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._foot_ids_center[foot]], dim=2), dim=-1)
             feet_force  = feet_force + torch.clamp(norm_feet_force_dict[foot] - self.cfg.max_feet_contact_force, min=0)** 2
             #STUMBLE

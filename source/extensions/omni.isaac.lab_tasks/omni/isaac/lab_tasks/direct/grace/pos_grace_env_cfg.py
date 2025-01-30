@@ -232,16 +232,16 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     position_tracking_reward_scale  = 10.
     heading_tracking_reward_scale   = 5.
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.0002/(10/2)
+    joint_torque_reward_scale       = -0.0002/(10)
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001/10
+    base_acc_reward_scale           = -0.001/(5)
     base_lin_acc_weight             = 1.
     base_ang_acc_weight             = 0.02
     feet_acc_reward_scale           = -0.002/50
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 500
-    feet_contact_force_reward_scale = -0.00001/10
+    feet_contact_force_reward_scale = -0.00001
     wait_time                       = 0.2
     dont_wait_reward_scale          = -1.
     move_in_direction_reward_scale  = 1.
@@ -254,7 +254,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     termination_reward_scale        = -230.
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 0.1*5
+    three_finger_reward_scale       = 1.
     show_flat_patches = True # da passare come args
     color_scheme = "height" #["height", "random", None]
 
@@ -271,7 +271,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=SUPSI_FLAT_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
