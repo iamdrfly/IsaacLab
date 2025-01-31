@@ -110,7 +110,7 @@ class GraceEnv(DirectRLEnv):
                 "stumble",
                 "termination",
                 "three_finger",
-                # "theta_marg_sum",
+                "theta_marg_sum",
                 # "a_marg"
 
             ]
@@ -123,16 +123,17 @@ class GraceEnv(DirectRLEnv):
                           'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER_00")[0],
                           'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER_00")[0]}
 
-        self._foot_ids = {'rl': self._contact_sensor.find_bodies("LR_FOOT_FINGER.*")[0],
-                          'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER.*")[0],
-                          'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER.*")[0],
-                          'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER.*")[0]}
+        self._foot_ids = {
+            'rl': self._contact_sensor.find_bodies(r"^(?!LR_FOOT_FINGER_00).*LR_FOOT_FINGER.*")[0],  # Excludes LR_FOOT_FINGER_00
+            'fr': self._contact_sensor.find_bodies(r"^(?!RF_FOOT_FINGER_00).*RF_FOOT_FINGER.*")[0],  # Excludes RF_FOOT_FINGER_00
+            'fl': self._contact_sensor.find_bodies(r"^(?!LF_FOOT_FINGER_00).*LF_FOOT_FINGER.*")[0],  # Excludes LF_FOOT_FINGER_00
+            'rr': self._contact_sensor.find_bodies(r"^(?!RR_FOOT_FINGER_00).*RR_FOOT_FINGER.*")[0]  # Excludes RR_FOOT_FINGER_00
+        }
 
         self._vacuum_ids = [self._foot_ids[idx] for idx in self._foot_ids.keys()]
         self._vacuum_name = [idx for idx in self._foot_ids.keys()]
         self._vacuum_ids = list(itertools.chain.from_iterable(self._vacuum_ids ))
         self._id_acc_foot = self._foot_ids_center
-        self._foot_ids_center_list = [self._foot_ids_center["rl"],self._foot_ids_center["fr"]]
 
         self._foot_ids_center_list = [self._foot_ids_center[idx] for idx in self._foot_ids_center.keys()]
         self._foot_ids_center_list = list(itertools.chain.from_iterable(self._foot_ids_center_list ))
@@ -485,7 +486,7 @@ class GraceEnv(DirectRLEnv):
                     self._robot.data.joint_vel[:,self._all_joints], #12
                     self.pose_command(),  # 4
                     self._remaining_time(),  # 1
-                    height_data,#187
+                    height_data,#187 -->196
                 )
                 if tensor is not None
             ],
@@ -544,7 +545,7 @@ class GraceEnv(DirectRLEnv):
         # self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
 
         #SE VUOI USAE VERSIONE CON CENTRO
-        self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._foot_ids_center[name], :]
+        self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._foot_ids_center[name], :].squeeze()
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids_center[name]] > 1.
 
 
@@ -598,6 +599,8 @@ class GraceEnv(DirectRLEnv):
         for name in self._foot_ids.keys():
             self.compute_foot_properties(name)
 
+
+        pippo = 1
         # Cross products for tumbling axes
         self.n_gab_w = {
             "fl-fr": torch.cross(self.com_w - self.pos_foot_w["fl"], self.com_w - self.pos_foot_w["fr"], dim=1),
@@ -609,16 +612,16 @@ class GraceEnv(DirectRLEnv):
         }
 
         self.bitmap_contatc = {
-                "fl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,
-                "fr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,
-                "rr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,
-                "rl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,
-                "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0),
-                "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
-                "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
-                "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0),
-                "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
-                "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
+                "fl": self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fl"]].sum(dim=1) > 0,
+                "fr": self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fr"]].sum(dim=1) > 0,
+                "rr": self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rr"]].sum(dim=1) > 0,
+                "rl": self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rl"]].sum(dim=1) > 0,
+                "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fr"]].sum(dim=1) > 0),
+                "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rr"]].sum(dim=1) > 0),
+                "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rl"]].sum(dim=1) > 0),
+                "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fl"]].sum(dim=1) > 0),
+                "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rr"]].sum(dim=1) > 0),
+                "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids_center["rl"]].sum(dim=1) > 0),
         }
 
         is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
@@ -831,7 +834,7 @@ class GraceEnv(DirectRLEnv):
         #XY-Position Tracking
         self._update_pose_metrics()
 
-        # self._theta_marg_and_a_marg()
+        self._theta_marg_and_a_marg()
 
         position_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_pos_xy), 0.0)
         # Heading Tracking
@@ -963,7 +966,7 @@ class GraceEnv(DirectRLEnv):
             "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
             "three_finger":             normed_exponential          * self.cfg.three_finger_reward_scale        * self.step_dt,
-            # "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
+            "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)

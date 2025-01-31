@@ -252,9 +252,9 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -1.
     feet_termination_force          = 1100
     termination_reward_scale        = -230.
-    theta_marg_sum_reward_scale     = 0.
+    theta_marg_sum_reward_scale     = 0.01
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 3.
+    three_finger_reward_scale       = 0.
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
 
@@ -266,7 +266,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
 @configclass
 class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     # env
-    observation_space = 224 #235
+    observation_space = 234 #224 #235
 
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
@@ -292,7 +292,8 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
         prim_path="/World/envs/env_.*/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         attach_yaw_only=True,
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.15, size=[2., 2.0]),
+        # pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
     )
