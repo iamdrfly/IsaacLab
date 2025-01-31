@@ -254,8 +254,8 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     termination_reward_scale        = -230.
     theta_marg_sum_reward_scale     = 0.
     a_marg_reward_scale             = 0.
-    three_finger_reward_scale       = 1.
-    show_flat_patches = True # da passare come args
+    three_finger_reward_scale       = 3.
+    show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
 
 
