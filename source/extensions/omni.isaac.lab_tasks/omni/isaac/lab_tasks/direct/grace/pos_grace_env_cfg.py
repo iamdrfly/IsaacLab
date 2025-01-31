@@ -246,9 +246,9 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     joint_torque_reward_scale       = -0.0002/(10)
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001/(5)
+    base_acc_reward_scale           = -0.001/(2)
     base_lin_acc_weight             = 1.
-    base_ang_acc_weight             = 0.02
+    base_ang_acc_weight             = 0.02*2
     feet_acc_reward_scale           = -0.002/50
     action_rate_reward_scale        = -0.01
     max_feet_contact_force          = 500
@@ -263,7 +263,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     stumble_reward_scale            = -1.
     feet_termination_force          = 1100
     termination_reward_scale        = -230.
-    theta_marg_sum_reward_scale     = 0.01
+    theta_marg_sum_reward_scale     = 1.
     a_marg_reward_scale             = 0.
     three_finger_reward_scale       = 0.
     show_flat_patches = False # da passare come args
