@@ -303,7 +303,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/4
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/1.8
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -573,8 +573,6 @@ class GraceEnv(DirectRLEnv):
         self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._robot_foot_ids_center[name], :].squeeze()
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center[name]] > 1.
 
-
-
         # #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
         vacuum = torch.zeros_like(self._forces_vacuum[:, :3, :], device=self.device)
         if name in "rl":
@@ -587,25 +585,30 @@ class GraceEnv(DirectRLEnv):
             vacuum = self._forces_vacuum[:,9:12,:] #[20,21,22]
 
         """gripping force into tumble stability, it can be considered a force to resist an external tearing-off force at the contact point of the gripper"""
-        Fj_b = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids[name]], vacuum)
+        # Fj_b = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids[name]], vacuum)
+
+        # SOTTO IPOTESI: che l xform delle dita dei piedi abbia la z rivolta verso l'alto. La variabile vacuum contiene gia le forze di reazione dovute alla vaccum
+        # quindi: quando ho adesione della ventosa la forza di reazione delle vacuum sara entrante nel punto di appoggio (-)
+        Fj_b = vacuum
 
         """reaction force"""
-        forces_foot_w = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids[name], :] #PERCHE SONO QUELLE RILEVATE DAL SENSORE --> REAZIONE
+        forces_foot_w = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids[name], :] #PERCHE SONO QUELLE RILEVATE DAL SENSORE --> REAZIONE. sono forze uscenti dal terreno (+)
 
+        # verifico dove sto usando la forza di vacuum
         mask = torch.norm(Fj_b, dim = -1)>1.
 
+        #Esprimo le forze delle ventose nel frame W. NB le ventose sono espresse nel frame relativo all xform delle dita della zampa
         Fj_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids[name]], Fj_b)
 
+        #Inserisco solo forze di reazione delle ventose che sono in contatto nel vettore delle forze di reazione.
+        #NB le forces_foot_w teoricamente non devono essere usate perche contengono sia le forze di reazione date dal puro contatto che quelle dovute al vacuum.
+        #in accordo con https://doi.org/10.13180/clawar.2020.24-26.08.18 SI DOVREBBE TENERE CONTO DELLE SOLE FORZE DI VACUUM
         forces_foot_w[mask] = Fj_w[mask]
 
+        #Salvo in force_w la somma dele forze di rezione  per usarle successivamente nel calcolo delle metriche di stabilita
         # self.force_w[name] = forces_foot_w.sum(dim=1)
         self.force_w[name] = Fj_w.sum(dim=1)
 
-        # if torch.any(mask):
-        #     pippo=1
-        # forces_foot_b[mask] = vacuum[mask] + forces_foot_b[mask]
-        # forces_world = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name]], forces_foot_b)
-        # self.force_w[name] = forces_world.sum(dim=1)
 
 
     # @track_time
@@ -613,7 +616,7 @@ class GraceEnv(DirectRLEnv):
         # Gravito-inertial acceleration
         acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
         ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
-        self.a_gi_w = self._robot.data.GRAVITY_VEC_W - ag_total_w
+        self.a_gi_w = (self._robot.data.GRAVITY_VEC_W *  9.81) - ag_total_w
 
         # Center of mass
         self.com_w = torch.sum(
@@ -624,9 +627,7 @@ class GraceEnv(DirectRLEnv):
         for name in self._cs_foot_ids.keys():
             self.compute_foot_properties(name)
 
-
-        pippo = 1
-        # Cross products for tumbling axes
+        # Cross products for tumbling axes --> Ottieni i versori che definiscono i lati del poliedro di stabilita
         self.n_gab_w = {
             "fl-fr": torch.cross(self.com_w - self.pos_foot_w["fl"], self.com_w - self.pos_foot_w["fr"], dim=1),
             "fr-rr": torch.cross(self.com_w - self.pos_foot_w["fr"], self.com_w - self.pos_foot_w["rr"], dim=1),
@@ -636,6 +637,7 @@ class GraceEnv(DirectRLEnv):
             "fr-rl": torch.cross(self.com_w - self.pos_foot_w["fr"], self.com_w - self.pos_foot_w["rl"], dim=1),
         }
 
+        # A four legged robot has six possible tumbling axes. This function simply computes a bitmap if either the axis is active (leg is in contact) or not
         self.bitmap_contatc = {
                 "fl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0,
                 "fr": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0,
@@ -649,45 +651,50 @@ class GraceEnv(DirectRLEnv):
                 "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0),
         }
 
+        #Tensore costruito dal dizionario bitmap con uno specifico ordine che viene utilizzato per calcolare le metriche
         is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
 
         # Normalize tumbling axis vectors
         for key, value in self.n_gab_w.items():
             self.n_gab_w[key] = self.safe_normalize(value)
 
-        # Compute mass_times_agilim_dot_n_agab
+        # Compute mass_times_agilim_dot_n_agab vedi Eq.(5) di https://doi.org/10.13180/clawar.2020.24-26.08.18
         for key, value in self.foot_faces.items():
-            foot_j1 = self.check_face[key][0]
-            foot_j2 = self.check_face[key][1]
-            foot_b = self.foot_faces[key][1]
-            foot_a = self.foot_faces[key][0]
-            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1)
-            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1)
-            self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)  # DA VERIFICARE SEGNO
+            foot_j1, foot_j2 = self.check_face[key][0], self.check_face[key][1]
+            foot_a,  foot_b  = self.foot_faces[key][0], self.foot_faces[key][1]
+            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1) #cross dopo = dell'eq5 per j=1
+            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1) #cross dopo = dell'eq5 per j=2
+            #NB self.force_w[foot_j1] contiene la forza di reazione dovuta al vacuum, non ci sono M0 e F0 (M0 and F0 are external components of the tumbling moment)
+            self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1) # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
 
-        # Solve for agilim
-        for key in self.n_gab_w.keys(): #metto a zero le N_gab che non sono attive
+        # Devo trovare la a_{gi,lim} risolvendo m*a_{gi,lim} \cdot n_{gab} = mass_times_agilim_dot_n_agab_w. NB: e' un sistema composto da 6 equzioni
+        for key in self.n_gab_w.keys():
+            #metto a 0 le n_{gab} che non sono attive (i.e. se lato del poliedro non e' attivo significa che uno o entrambi i piedi che definiscono il lato non sono a contatto)
             mask = torch.logical_not(self.bitmap_contatc[key])
             self.n_gab_w[key][mask] = torch.zeros((3), device=self.device)
             self.mass_times_agilim_dot_n_agab_w[key][mask] = 0.
 
-
+        #CONVERTO IL SISTEMA IN MATRICI
+        #A*x = b dove A e' una matrice di 6x3, x e' una 3x1 e b e' 6x1.
         A = torch.stack([self.n_gab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
         b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
         b = b.unsqueeze(2)  # (num_envs, num_faces, 1)
+
         if A.shape[1] >= 3:  # Assicura che ci siano almeno 3 vincoli
-            A_pseudo_inv = torch.linalg.pinv(A)  # Calcolo robusto della pseudo-inversa
+            # A^{#} * A * x = A^{#} * b --> x = A^{#} * b  dove x e' la a_{gi,lim}
+            A_pseudo_inv = torch.linalg.pinv(A)
             self.a_gilim_w = torch.matmul(A_pseudo_inv, b).squeeze(-1)
         else:
-            raise ValueError("Numero insufficiente di vincoli per calcolare a_gi,lim.")
+            raise ValueError("Numero insufficiente di vincoli per calcolare a_{gi,lim}.")
 
 
         rew_eth = torch.zeros(self.num_envs, device=self.device)
         rew_amarg = torch.zeros(self.num_envs, device=self.device)
-
-        epsilon = 1e-8  # Piccolo valore per evitare divisioni per zero
+        epsilon = 1e-8
 
         for key in self.foot_faces.keys():
+
+            #versore del lato del poliedro
             n_agb = self.n_gab_w[key]
 
             # Calcolo delle norme con aggiunta di epsilon per evitare divisioni per zero
@@ -696,17 +703,21 @@ class GraceEnv(DirectRLEnv):
             norm_a_gilim_w = torch.linalg.norm(self.a_gilim_w, dim=1) + epsilon
 
             # Calcolo di cos_theta_agi e cos_theta_gilim con denominatore corretto
+            # Our first proposition for quantitative analysis is the inclination margin for gravito-inertial acceleration, which is the angle between the GIA vector and the limit plane for a tumbling
+            # axis. The minimum value among all tumbling axes is the inclination margin θ_{marg} vedi Eq.(7) https://doi.org/10.13180/clawar.2020.24-26.08.18
             cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
             cos_theta_gilim = torch.clip(norm_a_gilim_w / norm_a_gi_w, -1.0, 1.0)
 
-            # Calcolo di theta_marg
+            # Calcolo di theta_marg per ogni lato. The value is normalized with  − π/2 to ensure negative angle if the GIA vector points out of the polyhedron. Eq.2 DOI: 10.1109/IROS55552.2023.10341665
             self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
 
-            # Calcolo di a_marg
+            # Calcolo di a_marg per ogni lato. The acceleration margin represents the maximum acceleration increment that can be applied in any direction that does not cause the robot to tumble. Eq 8 https://doi.org/10.13180/clawar.2020.24-26.08.18
             self.a_marg[key] = norm_a_gilim_w - torch.sum(n_agb * self.a_gi_w, dim=1) / norm_n_agb
 
             # Calcolo di is_inside_poly
+            # a destra del <= puo essere 0 se non usi le vacuum oppuere devi verificare con la a_{gi,lim}
             self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
+
 
             # Aggiornamento di rew_eth e rew_amarg
             rew_eth[:] += self.theta_marg[key]
@@ -716,131 +727,17 @@ class GraceEnv(DirectRLEnv):
         theta_marg_stack    = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
         is_in_poly          = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
 
-        mask_active_in_poly = is_in_poly * is_active
+        mask_active_in_poly = is_in_poly * is_active # se lato stabile e se lato attivo (tutti e due piedi a contatto)
         zeros = torch.zeros(self.num_envs, device=self.device)
 
+        # CONSIDERO LE METRICHE SOLO SE: at least three legs are contacting the ground and the respective GIA vector points inside the stability polyhedron ALTRIMENTI 0
         amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
         theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
 
         # #IN ACCORDO CON THESIS CEWEILBEL
         self._amarg         = torch.max(zeros, amin).to(device=self.device)
-        # self._amarg = a_marg_stack.min(dim=0).values.sum(dim=0).to(device=self.device)
-        # self._thetamarg     = torch.max(zeros, theta_min).to(device=self.device)
-        #
         # #IN ACCORDO ARTICOLO VALSECCHI
         self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
-
-        #se hai 3 piedi a terra --> stai usando vacuum?
-        # --> se amin and theta_marg > 0 --> +1 sei stabile
-        # --> se amin or thet_marg < 0 --> -1 perche non stai usando l vacuum in maniera corretta
-
-
-
-
-
-    # def _theta_marg_and_a_marg(self):
-    #     self.acc_mass_w = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
-    #     self.ag_total_w = self.acc_mass_w.sum(dim=1) / self.tot_mass
-    #     self.a_gi_w = self._robot.data.GRAVITY_VEC_W - self.ag_total_w
-    #     self.com_w = torch.sum(self._robot.data.body_pos_w[:, :, :] * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device), dim=1) / self.tot_mass
-    #
-    #     self.bitmap_contatc = {
-    #         "fl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,
-    #         "fr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,
-    #         "rr": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,
-    #         "rl": self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,
-    #         "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0),
-    #         "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
-    #         "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
-    #         "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0),
-    #         "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fl"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rr"]].sum(dim=1) > 0),
-    #         "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._foot_ids["fr"]].sum(dim=1) > 0,self._contact_sensor.data.current_contact_time[:, self._foot_ids["rl"]].sum(dim=1) > 0),
-    #     }
-    #
-    #     for name in self._foot_ids.keys():
-    #         pos_finger_1_w = self._robot.data.body_pos_w[:, self._foot_ids[name][0], :]
-    #         pos_finger_2_w = self._robot.data.body_pos_w[:, self._foot_ids[name][1], :]
-    #         pos_finger_3_w = self._robot.data.body_pos_w[:, self._foot_ids[name][2], :]
-    #
-    #         self.pos_foot_w[name] = (pos_finger_1_w + pos_finger_2_w + pos_finger_3_w) / 3
-    #
-    #         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
-    #
-    #         force_1_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
-    #         force_2_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
-    #         force_3_foot = torch.zeros([self.num_envs, 3], dtype=torch.float32, device=self.device)
-    #
-    #         #DA ADD QUI VACUUM FORCE
-    #         # force_1_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][0]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][0]] > 0
-    #         # force_2_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][1]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][1]] > 0
-    #         # force_3_foot[:, 2] = - contact_sensor.data.vacuum_action_force[:, self._foot_ids[name][2]] * self._contact_sensor.data.current_contact_time[:, self._foot_ids[name][2]] > 0
-    #
-    #         force_1_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][0]], force_1_foot)
-    #         force_2_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][1]], force_2_foot)
-    #         force_3_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._foot_ids[name][2]], force_3_foot)
-    #
-    #         self.force_w[name] = (force_1_w + force_3_w + force_2_w) / 3
-    #
-    #     self.n_gab_w = {
-    #         "fl-fr": torch.cross(self.com_w-self.pos_foot_w["fl"], self.com_w-self.pos_foot_w["fr"], dim=1),
-    #         "fr-rr": torch.cross(self.com_w-self.pos_foot_w["fr"], self.com_w-self.pos_foot_w["rr"], dim=1),
-    #         "rr-rl": torch.cross(self.com_w-self.pos_foot_w["rr"], self.com_w-self.pos_foot_w["rl"], dim=1),
-    #         "rl-fl": torch.cross(self.com_w-self.pos_foot_w["rl"], self.com_w-self.pos_foot_w["fl"], dim=1),
-    #         "fl-rr": torch.cross(self.com_w-self.pos_foot_w["fl"], self.com_w-self.pos_foot_w["rr"], dim=1),
-    #         "fr-rl": torch.cross(self.com_w-self.pos_foot_w["fr"], self.com_w-self.pos_foot_w["rl"], dim=1),
-    #     }
-    #
-    #     for key, value in self.n_gab_w.items():
-    #         self.n_gab_w[key] = value / torch.norm(value, dim=1, keepdim=True)
-    #
-    #     for key, value in self.foot_faces.items():
-    #         foot_j1 = self.check_face[key][0]
-    #         foot_j2 = self.check_face[key][1]
-    #         foot_b = self.foot_faces[key][1]
-    #         foot_a = self.foot_faces[key][0]
-    #         temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1)
-    #         temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1)
-    #         self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)  # DA VERIFICARE SEGNO
-    #
-    #     A = torch.stack([self.n_gab_w[key] for key in self.foot_faces.keys()], dim=1).to(device=self.device)
-    #     b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.foot_faces.keys()], dim=1).to(device=self.device)
-    #     b = b.unsqueeze(2) # (n_envs, n_faces, 1)
-    #     A_pseudo_inv = torch.linalg.pinv(A)  # (n_envs, 3, n_faces)
-    #     self.a_gilim_w = torch.matmul(A_pseudo_inv, b)  # (n_envs, 3, 1)
-    #     self.a_gilim_w = self.a_gilim_w.squeeze(-1)
-    #
-    #
-    #     rew_eth = torch.zeros(self.num_envs, device=self.device)
-    #     rew_amarg = torch.zeros(self.num_envs, device=self.device)
-    #
-    #     for key in self.foot_faces.keys():
-    #         n_agb = self.n_gab_w[key]
-    #         cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (torch.linalg.norm(n_agb, dim=1) * torch.linalg.norm(self.a_gi_w, dim=1)), -1.0, 1.0)
-    #         cos_theta_gilim = torch.clip(torch.linalg.norm(self.a_gilim_w, dim=1) / torch.linalg.norm(self.a_gi_w, dim=1), -1.0, 1.0)
-    #         self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
-    #         self.a_marg[key] = torch.linalg.norm(self.a_gilim_w, dim=1) - torch.sum(n_agb * self.a_gi_w, dim=1) / torch.linalg.norm(n_agb, dim=1)
-    #         self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
-    #         rew_eth[:] += self.theta_marg[key]
-    #         rew_amarg[:] += self.a_marg[key]
-    #
-    #     # mask = torch.zeros(asset.num_instances, device=asset.device)
-    #     # for key in foot_in_contact.keys():
-    #     #     mask += foot_in_contact[key].to(torch.float)
-    #
-    #     a_marg_stack = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
-    #     theta_marg_stack = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
-    #     is_in_poly = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
-    #     is_active = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
-    #
-    #     mask_active_in_poly = is_in_poly * is_active
-    #     zeros = torch.zeros(self.num_envs, device=self.device)
-    #
-    #     amin = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
-    #     theta_min = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
-    #
-    #     self._amarg = torch.max(zeros, amin).to(device=self.device)
-    #     self._thetamarg = torch.max(zeros, theta_min).to(device=self.device)
-    #     self._sumthetamarg = theta_marg_stack.sum(dim=0).to(device=self.device)
 
 
     def get_amarg(self):
