@@ -168,6 +168,40 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         }
     )
 
+    triangle_visualizer : VisualizationMarkersCfg = VisualizationMarkersCfg(
+        prim_path="/Visuals/triangleMarker",
+        markers={
+            "stick" : sim_utils.CylinderCfg(
+                radius=0.02,
+                height=1,
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0., 0., 1.)),
+            ),
+            "com" : sim_utils.SphereCfg(
+                radius=0.05,
+            ),
+            "a_gi": sim_utils.UsdFileCfg( # taken from GREEN_ARROW_X_MARKER_CFG
+                usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
+                scale=(0.2, 0.2, 0.8),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.2, 0.8)),
+            ),
+            "gravity": sim_utils.UsdFileCfg(
+                usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
+                scale=(0.2, 0.2, 0.8),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 0.0)),
+            ),
+            "ag_total": sim_utils.UsdFileCfg(
+                usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
+                scale=(0.2, 0.2, 0.8),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+            ),
+            "a_gilim": sim_utils.UsdFileCfg(
+                usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
+                scale=(0.2, 0.2, 0.8),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1., 1., 1.)),
+            )
+        }
+    )
+
     # # reward scales CAMMINATA FLAT 24/01/25  /home/lab/IsaacLab/logs/rsl_rl/pos_grace_rough_direct/2025-01-24_10-20-05_best_flat  /home/lab/IsaacLab/usd/grace_fake_spherical_center.usd
     # position_tracking_reward_scale  = 10.
     # heading_tracking_reward_scale   = 5.

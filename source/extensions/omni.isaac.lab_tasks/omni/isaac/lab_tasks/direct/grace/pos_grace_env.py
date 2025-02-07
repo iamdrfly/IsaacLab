@@ -27,6 +27,7 @@ import itertools
 
 # Se usi pc 4 
 from vacuum.LSTM_Helper import *
+import omni.isaac.lab.utils.supsi_utils as supsi_utils
 
 # Se usi pc 3 
 # import sys
@@ -303,7 +304,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/1.8
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/4
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -351,6 +352,7 @@ class GraceEnv(DirectRLEnv):
             self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
 
         self._vacuum_visualizer = VisualizationMarkers(self.cfg.vacuum_visualizer)
+        self.triangle_visualizer = VisualizationMarkers(self.cfg.triangle_visualizer)
 
         if self.cfg.show_flat_patches:
             # Configure the flat patches
@@ -441,6 +443,7 @@ class GraceEnv(DirectRLEnv):
         # self._vacuum_old = torch.where(mask,self._vacuum_old, contact_time)
         # self._vacuum_time = contact_time - self._vacuum_old
         # self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
+        # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
         #
         #
@@ -462,6 +465,70 @@ class GraceEnv(DirectRLEnv):
         #     vacuum_indices[vacuum_mask] = 2
         #
         #     self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
+        #     if hasattr(self, 'com_w'):
+                # height = 0.0
+                #
+                # transl_com = self.com_w
+                # transl_com[:, 2] += height
+                # orien_com = torch.zeros([self.com_w.shape[0], 4], device=self.device)
+                # orien_com[:, 0] = 1
+                # indices_com = torch.ones(transl_com.shape[0], device=self.device)
+                # scaling_com = torch.ones([transl_com.shape[0], 3], device=self.device)
+                #
+                # transl_a_gi = self.com_w
+                # transl_a_gi[:, 2] += height
+                # orien_a_gi = supsi_utils.vector_to_quaternion(self.a_gi_w, self.device)
+                # indices_a_gi = torch.ones(orien_a_gi.shape[0], device=self.device) * 2
+                # scaling_a_gi = torch.ones([transl_a_gi.shape[0], 3], device=self.device)
+                # scaling_a_gi[:, 2] = torch.norm(self.a_gi_w / 9.81, dim=1)
+
+                # transl_gravity = self.com_w
+                # transl_gravity[:, 2] += height
+                # orien_gravity = supsi_utils.vector_to_quaternion(self._robot.data.GRAVITY_VEC_W, self.device)
+                # indices_gravity = torch.ones(orien_gravity.shape[0], device=self.device) * 3
+                # scaling_gravity = torch.ones([transl_gravity.shape[0], 3], device=self.device)
+                #
+                # transl_ag_total = self.com_w
+                # transl_ag_total[:, 2] += height
+                # orien_ag_total = supsi_utils.vector_to_quaternion(self.ag_total_w, self.device)
+                # indices_ag_total = torch.ones(orien_ag_total.shape[0], device=self.device) * 4
+                # scaling_ag_total = torch.ones([transl_ag_total.shape[0], 3], device=self.device)
+                # scaling_ag_total[:, 2] = torch.norm(self.ag_total_w / 9.81, dim=1)
+
+                # """
+                # se a_gilim è [0, 0, 0] orient vanno a nan e scaling a 0 (sparisce la freccia)
+                # """
+                # transl_a_gilim = self.com_w.clone()
+                # transl_a_gilim[:, 2] += height
+                # orien_a_gilim = supsi_utils.vector_to_quaternion(self.a_gilim_w, self.device)
+                # indices_a_gilim = torch.ones(transl_a_gilim.shape[0], device=self.device) * 5
+                # scaling_a_gilim = torch.ones([transl_a_gilim.shape[0], 3], device=self.device)
+                # scaling_a_gilim[:, 2] = torch.norm(self.a_gilim_w / 9.81, dim=1)
+
+                # transl_total = torch.cat((
+                #     transl_com, transl_a_gi, transl_a_gilim
+                # ), 0)
+                # orien_total = torch.cat((
+                #     orien_com, orien_a_gi, orien_a_gilim
+                # ), 0)
+                # indices_total = torch.cat((
+                #     indices_com, indices_a_gi, indices_a_gilim
+                # ), 0)
+                # scaling_total = torch.abs(torch.cat((
+                #     scaling_com, scaling_a_gi, scaling_a_gilim
+                # ), 0))
+                # self.triangle_visualizer.visualize(translations=transl_total, orientations=orien_total, marker_indices=indices_total, scales=scaling_total)
+                # self.triangle_visualizer.visualize(translations=transl_com, marker_indices=indices_com)
+
+            # foot_pos_w = self._robot.data.body_pos_w[:, self._robot_foot_ids_center_list, :]
+            # foot_pos_fl = foot_pos_w.flatten(end_dim=1)
+            # roll_sticks = torch.zeros(foot_pos_fl.shape[0])
+            # pitch_sticks = torch.ones(foot_pos_fl.shape[0]) * 1.57
+            # yaw_sticks = torch.zeros(foot_pos_fl.shape[0])
+            #
+            # quat_sticks = math_utils.quat_from_euler_xyz(roll_sticks, pitch_sticks, yaw_sticks)
+            #
+            # self.triangle_visualizer.visualize(translations=foot_pos_w, orientations=quat_sticks)
 
     # @track_time
     def _apply_action(self):
@@ -572,6 +639,8 @@ class GraceEnv(DirectRLEnv):
         #SE VUOI USAE VERSIONE CON CENTRO
         self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._robot_foot_ids_center[name], :].squeeze()
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center[name]] > 1.
+
+
 
         # #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
         vacuum = torch.zeros_like(self._forces_vacuum[:, :3, :], device=self.device)
