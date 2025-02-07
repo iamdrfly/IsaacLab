@@ -13,7 +13,7 @@ from ..terrain_generator_cfg import TerrainGeneratorCfg
 
 
 num_patches = 50
-patch_radius = .2
+patch_radius = .02
 max_height_diff = 0.5
 
 SUPSI_FLAT_TERRAINS_CFG = TerrainGeneratorCfg(
@@ -199,6 +199,45 @@ CUBES_SUPSI_VERT_TERRAINS_CFG = TerrainGeneratorCfg(
             proportion=0.1, cube_dim=30, platform_width=2.0, border_width=1.25, inverted=False, overlap=True,
             flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         ),
+    },
+)
+"""Rough terrains configuration."""
+
+ELIA_TERRAINS_CFG = TerrainGeneratorCfg(
+    curriculum=True,
+    color_scheme="height",
+    # show_flat_patches=False,
+    # --------------
+    size=(15.0, 15.0),
+    border_width=20.0,
+    # for faster load, set row=5 and col=8
+    num_rows=10,
+    num_cols=10,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    sub_terrains={
+        "hf_wave" : terrain_gen.HfWaveTerrainCfg(
+            proportion=0.3,
+            amplitude_range=[0.5, 2.],
+            flat_patch_sampling={"target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.1,
+            flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        "cube_down": terrain_gen.SupsiSingleCubeDownTerrainCfg(
+            proportion=0.3,
+            cube_dim=25,
+            flat_patch_sampling={"target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
+        "cube_down_inv": terrain_gen.SupsiSingleCubeDownTerrainCfg(
+            proportion=0.3,
+            inverted=True,
+            cube_dim=25,
+            flat_patch_sampling={"target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        )
     },
 )
 """Rough terrains configuration."""
