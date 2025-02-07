@@ -407,7 +407,6 @@ class GraceEnv(DirectRLEnv):
         # self._actions_pos = self._actions[:,:-4*3]
         # self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
 
-
         # self._action_vacuum = self._actions[:,-4*3:]
         # self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
         # self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
@@ -446,7 +445,8 @@ class GraceEnv(DirectRLEnv):
         # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
         #
-        #
+
+        # VISULAIZZAZIONE VACUUM
         # if self.sim.has_gui():
         #     scales = torch.ones_like(self._forces_vacuum, device=self.device)
         #     scales[:, :, 2][mask] = self._forces_vacuum[:, :, 2][mask] / 380 # 380 --> max force from LSTM
@@ -636,7 +636,7 @@ class GraceEnv(DirectRLEnv):
         # self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
         # self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
 
-        #SE VUOI USAE VERSIONE CON CENTRO
+        #SE VUOI USARE VERSIONE CON CENTRO
         self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._robot_foot_ids_center[name], :].squeeze()
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center[name]] > 1.
 
