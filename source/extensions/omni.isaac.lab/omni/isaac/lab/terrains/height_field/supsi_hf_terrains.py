@@ -224,6 +224,69 @@ def supsi_single_cube_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.Sups
     return np.rint(hf_raw).astype(np.int16)
 
 @height_field_to_mesh
+def supsi_single_cube_down_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiSingleCubeTerrainCfg) -> np.ndarray:
+    """Generate a terrain with a truncated pyramid structure.
+
+    The terrain is a pyramid-shaped sloped surface with a slope of :obj:`slope` that trims into a flat platform
+    at the center. The slope is defined as the ratio of the height change along the x axis to the width along the
+    x axis. For example, a slope of 1.0 means that the height changes by 1 unit for every 1 unit of width.
+
+    If the :obj:`cfg.inverted` flag is set to :obj:`True`, the terrain is inverted such that
+    the platform is at the bottom.
+
+    .. image:: ../../_static/terrains/height_field/pyramid_sloped_terrain.jpg
+       :width: 40%
+
+    .. image:: ../../_static/terrains/height_field/inverted_pyramid_sloped_terrain.jpg
+       :width: 40%
+
+    Args:
+        difficulty: The difficulty of the terrain. This is a value between 0 and 1.
+        cfg: The configuration for the terrain.
+
+    Returns:
+        The height field of the terrain as a 2D numpy array with discretized heights.
+        The shape of the array is (width, length), where width and length are the number of points
+        along the x and y axis, respectively.
+    """
+
+
+
+    # switch parameters to discrete units
+    # -- horizontal scale
+    width_pixels = int(cfg.size[0] / cfg.horizontal_scale)
+    length_pixels = int(cfg.size[1] / cfg.horizontal_scale)
+    # -- center of the terrain
+    center_x = int(width_pixels / 2)
+    center_y = int(length_pixels / 2)
+    #
+    # x = np.zeros(width_pixels)
+    # y = np.ones(length_pixels)
+    # xx, yy = np.meshgrid(x, y, sparse=True)
+    # # scaling in range (0-1)
+    # # xx = xx / x.max()
+    # yy = yy / y.max()
+    # # reshape the meshgrid to be 2D
+    # xx = xx.reshape(width_pixels, 1)
+    # yy = yy.reshape(1, length_pixels)
+    # create a sloped surface
+    hf_raw = np.zeros((width_pixels, length_pixels))
+
+    height_max = int(cfg.size[0] / 2 / cfg.vertical_scale) // 2
+    if center_x - cfg.cube_dim < 0 or center_y - cfg.cube_dim < 0:
+        raise ValueError("Invalid cube dimension when creating terrain")
+    hf_raw[center_x-cfg.cube_dim:center_x+cfg.cube_dim, center_y-cfg.cube_dim:center_y+cfg.cube_dim] = height_max * difficulty // 2
+
+    # z_cut = hf_raw[width_pixels - cfg.plane_step // 2, length_pixels//2] # central point when the slope should end
+    # hf_raw[width_pixels - cfg.plane_step // 2:, :] = int(z_cut)
+
+    if cfg.inverted is True:
+        hf_raw = -hf_raw
+
+    # round off the heights to the nearest vertical step
+    return np.rint(hf_raw).astype(np.int16)
+
+@height_field_to_mesh
 def supsi_single_cube_vert_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiSingleCubeTerrainCfg) -> np.ndarray:
     # switch parameters to discrete units
     # -- horizontal scale
