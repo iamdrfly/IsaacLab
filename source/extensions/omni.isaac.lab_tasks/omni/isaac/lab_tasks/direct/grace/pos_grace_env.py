@@ -112,6 +112,7 @@ class GraceEnv(DirectRLEnv):
                 "termination",
                 "three_finger",
                 "theta_marg_sum",
+                "vacuum_action_rate_l2"
                 # "a_marg"
 
             ]
@@ -402,33 +403,42 @@ class GraceEnv(DirectRLEnv):
 
         self._actions = actions.clone()
 
-        self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
+        #se non usi vacuum
+        # self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
 
-        # self._actions_pos = self._actions[:,:-4*3]
-        # self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
+        #se usi vacuum
+        self._actions_pos = self._actions[:,:-4]
+        self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
 
-        # self._action_vacuum = self._actions[:,-4*3:]
-        # self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
-        # self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
-        # self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
+        self._action_vacuum = self._actions[:,-4:]
+        self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
+        self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
+        self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum <0.5, 0., 1.)*350/3
+        self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,0)  # ripeto 3 volte (3 dita) nella dim 0
+
         # self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
-        # contact_time = self._contact_sensor.data.current_contact_time[:, self._vacuum_ids]
+        # contact_time = self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids]
 
         ##vedo le forze di rezione nel W
-        # self._finger_reaction_forces_w = self._contact_sensor.data.net_forces_w[:, self._vacuum_ids]
+        self._finger_reaction_forces_w = self._contact_sensor.data.net_forces_w[:, self._cs_vacuum_ids]
         # #converto forze nel body piedi
-        # self._finger_reaction_forces_b  = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._vacuum_ids], self._finger_reaction_forces_w )
+        self._finger_reaction_forces_b  = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._robot_vacuum_ids], self._finger_reaction_forces_w )
+        self._vacuum_in_contact  = self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0.
+
         # #verifico che sono all interno del cono del giunto sferico
-        # spherical_joint_limit = 20.0
-        # theta_xz_w = torch.atan2(self._finger_reaction_forces_w[:,:,0],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
-        # theta_yz_w = torch.atan2(self._finger_reaction_forces_w[:,:,1],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
-        # theta_xz = torch.atan2(self._finger_reaction_forces_b[:,:,0],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
-        # theta_yz = torch.atan2(self._finger_reaction_forces_b[:,:,1],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
+        spherical_joint_limit = 20.0
+        theta_xz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,0],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
+        theta_yz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,1],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
+        theta_xz    = torch.atan2(self._finger_reaction_forces_b[:,:,0],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
+        theta_yz    = torch.atan2(self._finger_reaction_forces_b[:,:,1],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
         #
-        # mask_xz = theta_xz < spherical_joint_limit
-        # mask_yz = theta_yz < spherical_joint_limit
+        mask_xz = torch.logical_and(theta_xz > (90-spherical_joint_limit), theta_xz < (90+spherical_joint_limit))
+        mask_yz = torch.logical_and(theta_yz > (90-spherical_joint_limit), theta_yz < (90+spherical_joint_limit))
         #
-        # self._mask_inside_joint_limit = torch.logical_and(mask_xz, mask_yz)
+        self._mask_inside_joint_limit = torch.logical_and(mask_xz, mask_yz)
+        self._mask_in_contact_inside_cone = torch.logical_and(self._mask_inside_joint_limit, self._vacuum_in_contact)
+
         #
         # contact_time[torch.logical_not(self._mask_inside_joint_limit)] = 0.
         ## FINE
@@ -441,9 +451,10 @@ class GraceEnv(DirectRLEnv):
         # mask = torch.logical_and(self._processed_action_vacuum>0., contact_time>0.)
         # self._vacuum_old = torch.where(mask,self._vacuum_old, contact_time)
         # self._vacuum_time = contact_time - self._vacuum_old
-        # self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
+        self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
+        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
         #
 
         # VISULAIZZAZIONE VACUUM
@@ -887,8 +898,11 @@ class GraceEnv(DirectRLEnv):
         #     print("combined_mask>0")
         feet_force = torch.max(feet_force, dim=-1)[0]
 
-            # Action rate
-        action_rate = torch.sum(torch.square(self._actions - self._previous_actions), dim=1)
+        # Action rate
+        action_rate = torch.sum(torch.square(self._actions[:,:-4] - self._previous_actions[:,:-4]), dim=1)
+        # Vacuum Action rate
+        vacuum_action_rate = torch.sum(torch.square(self._actions[:,-4:] - self._previous_actions[:,-4:]), dim=1)
+
         # Don't wait
         dont_wait = torch.where(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < self.cfg.wait_time, 1., 0.)
         # Move in direction
@@ -958,6 +972,7 @@ class GraceEnv(DirectRLEnv):
             "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
             "three_finger":             normed_exponential          * self.cfg.three_finger_reward_scale        * self.step_dt,
             "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
+            "vacuum_action_rate_l2":    vacuum_action_rate          * self.cfg.vacuum_action_rate_reward_scale  * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
