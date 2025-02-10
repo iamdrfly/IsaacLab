@@ -13,7 +13,7 @@ from ..terrain_generator_cfg import TerrainGeneratorCfg
 
 
 num_patches = 50
-patch_radius = .2
+patch_radius = .2/10
 max_height_diff = 0.5
 
 SUPSI_FLAT_TERRAINS_CFG = TerrainGeneratorCfg(
@@ -70,27 +70,36 @@ SUPSI_ROUGH_TERRAINS_CFG = TerrainGeneratorCfg(
         #     holes=False,
         #     flat_patch_sampling = {"target":FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         # ),
-        "boxes": terrain_gen.MeshRandomGridTerrainCfg(
-            proportion=0.2, grid_width=0.45, grid_height_range=(0.05, 0.2), platform_width=2.0,
+        # "boxes": terrain_gen.MeshRandomGridTerrainCfg(
+        #     proportion=0.2, grid_width=0.45, grid_height_range=(0.05, 0.2), platform_width=2.0,
+        #     flat_patch_sampling={
+        #         "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        # ),
+
+        "wave": terrain_gen.HfWaveTerrainCfg(
+            proportion=0.2,
+            amplitude_range=(0.5, 1.5),
+            num_waves=1,
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         ),
+
         "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
             proportion=0.2, noise_range=(0.02, 0.10), noise_step=0.02, border_width=0.25,
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         ),
-        # "flat": terrain_gen.MeshPlaneTerrainCfg(
-        #     proportion=0.2,
-        #     flat_patch_sampling={"target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
-        # ),
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.2,
+            flat_patch_sampling={"target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
+        ),
         "hf_pyramid_slope": terrain_gen.HfPyramidSlopedTerrainCfg(
-            proportion=0.3, slope_range=(0.0, 0.4), platform_width=2.0, border_width=0.25,
+            proportion=0.2, slope_range=(0.0, 0.4), platform_width=2.0, border_width=0.25,
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         ),
         "hf_pyramid_slope_inv": terrain_gen.HfInvertedPyramidSlopedTerrainCfg(
-            proportion=0.3, slope_range=(0.0, 0.4), platform_width=2.0, border_width=0.25,
+            proportion=0.2, slope_range=(0.0, 0.4), platform_width=2.0, border_width=0.25,
             flat_patch_sampling={
                 "target": FlatPatchSamplingCfg(num_patches=num_patches, patch_radius=patch_radius, max_height_diff=max_height_diff)},
         ),
