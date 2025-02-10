@@ -415,7 +415,7 @@ class GraceEnv(DirectRLEnv):
         self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
         self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
         self._processed_action_vacuum = torch.where(self._processed_action_vacuum <0.5, 0., 1.)*350/3
-        self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,0)  # ripeto 3 volte (3 dita) nella dim 0
+        self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,1)  # ripeto 3 volte (3 dita) nella dim 1
 
         # self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
         # contact_time = self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids]
@@ -543,8 +543,10 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def _apply_action(self):
+        #se non usi vacuum
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
 
+        #se usi vacuum
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
