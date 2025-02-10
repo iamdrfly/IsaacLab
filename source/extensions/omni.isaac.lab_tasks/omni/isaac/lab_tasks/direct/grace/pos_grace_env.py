@@ -457,25 +457,25 @@ class GraceEnv(DirectRLEnv):
         self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
         #
 
-        # VISULAIZZAZIONE VACUUM
-        # if self.sim.has_gui():
-        #     scales = torch.ones_like(self._forces_vacuum, device=self.device)
-        #     scales[:, :, 2][mask] = self._forces_vacuum[:, :, 2][mask] / 380 # 380 --> max force from LSTM
-        #     translations = self._robot.data.body_pos_w[:, self._vacuum_ids, :]
-        #     translations[:, :, 2][torch.logical_not(mask)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
-        #     translations[:, :, 2][mask] += -scales[:, :, 2][mask] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
-        #     scales = scales.reshape((-1, 3))
-        #     translations = translations.reshape((-1, 3))
-        #
-        #     no_contact_mask = (contact_time==0).flatten()
-        #     contact_mask = torch.logical_and(contact_time>0, mask==False).flatten()
-        #     vacuum_mask = mask.flatten()
-        #     vacuum_indices = torch.ones_like(vacuum_mask, device=self.device).int()
-        #     vacuum_indices[no_contact_mask] = 0
-        #     vacuum_indices[contact_mask] = 1
-        #     vacuum_indices[vacuum_mask] = 2
-        #
-        #     self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
+        # VISUALIZZAZIONE VACUUM
+        if self.sim.has_gui():
+            scales = torch.ones_like(self._forces_vacuum, device=self.device)
+            scales[:, :, 2][self._mask_in_contact_inside_cone] = self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] / -350 # 380 --> max force from LSTM
+            translations = self._robot.data.body_pos_w[:, self._robot_vacuum_ids, :]
+            translations[:, :, 2][torch.logical_not(self._mask_in_contact_inside_cone)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][self._mask_in_contact_inside_cone] += -scales[:, :, 2][self._mask_in_contact_inside_cone] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            scales = scales.reshape((-1, 3))
+            translations = translations.reshape((-1, 3))
+
+            no_contact_mask = (self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]==0).flatten()
+            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, self._mask_in_contact_inside_cone==False).flatten()
+            vacuum_mask = self._mask_in_contact_inside_cone.flatten()
+            vacuum_indices = torch.ones_like(vacuum_mask, device=self.device).int()
+            vacuum_indices[no_contact_mask] = 0
+            vacuum_indices[contact_mask] = 1
+            vacuum_indices[vacuum_mask] = 2
+
+            self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
         #     if hasattr(self, 'com_w'):
                 # height = 0.0
                 #
@@ -543,10 +543,10 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def _apply_action(self):
-        self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
+        # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
 
-        # self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
-        # self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._vacuum_ids)
+        self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
+        self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
     # @track_time
