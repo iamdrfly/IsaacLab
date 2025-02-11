@@ -184,6 +184,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
                 scale=(0.2, 0.2, 0.8),
                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.2, 0.8)),
             ),
+            ),
             "gravity": sim_utils.UsdFileCfg(
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
                 scale=(0.2, 0.2, 0.8),
@@ -266,7 +267,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     position_tracking_reward_scale  = 10.*2.5
     heading_tracking_reward_scale   = 5.*2
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.0002*2.5
+    joint_torque_reward_scale       = -0.0002*2
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
     base_acc_reward_scale           = -0.001/2.5
@@ -289,7 +290,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     theta_marg_sum_reward_scale     = 0.01
     a_marg_reward_scale             = 0.
     three_finger_reward_scale       = 0.
-    vacuum_action_rate_reward_scale = 0.1
+    vacuum_action_rate_reward_scale = -0.001
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
 
@@ -306,7 +307,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(

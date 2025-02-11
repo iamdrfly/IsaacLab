@@ -305,7 +305,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/4
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -414,7 +414,8 @@ class GraceEnv(DirectRLEnv):
         self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
         self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
         self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
-        self._processed_action_vacuum = torch.where(self._processed_action_vacuum <0.5, 0., 1.)*350/3
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum >0.5, 1., 0.)*350/3
+        # self._processed_action_vacuum = torch.ones_like(self._processed_action_vacuum)*350/3
         self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,1)  # ripeto 3 volte (3 dita) nella dim 1
 
         # self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
@@ -427,17 +428,19 @@ class GraceEnv(DirectRLEnv):
         self._vacuum_in_contact  = self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0.
 
         # #verifico che sono all interno del cono del giunto sferico
-        spherical_joint_limit = 20.0
-        theta_xz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,0],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
-        theta_yz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,1],self._finger_reaction_forces_w[:,:,2])*180.0/torch.pi
-        theta_xz    = torch.atan2(self._finger_reaction_forces_b[:,:,0],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
-        theta_yz    = torch.atan2(self._finger_reaction_forces_b[:,:,1],self._finger_reaction_forces_b[:,:,2])*180.0/torch.pi
+        spherical_joint_limit = 45.0
+        theta_xz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,2],self._finger_reaction_forces_w[:,:,0])*180.0/torch.pi
+        theta_yz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,2],self._finger_reaction_forces_w[:,:,1])*180.0/torch.pi
+        theta_xz    = torch.atan2(self._finger_reaction_forces_b[:,:,2],self._finger_reaction_forces_b[:,:,0])*180.0/torch.pi
+        theta_yz    = torch.atan2(self._finger_reaction_forces_b[:,:,2],self._finger_reaction_forces_b[:,:,1])*180.0/torch.pi
         #
         mask_xz = torch.logical_and(theta_xz > (90-spherical_joint_limit), theta_xz < (90+spherical_joint_limit))
         mask_yz = torch.logical_and(theta_yz > (90-spherical_joint_limit), theta_yz < (90+spherical_joint_limit))
         #
+
         self._mask_inside_joint_limit = torch.logical_and(mask_xz, mask_yz)
         self._mask_in_contact_inside_cone = torch.logical_and(self._mask_inside_joint_limit, self._vacuum_in_contact)
+
 
         #
         # contact_time[torch.logical_not(self._mask_inside_joint_limit)] = 0.
@@ -460,7 +463,7 @@ class GraceEnv(DirectRLEnv):
         # VISUALIZZAZIONE VACUUM
         if self.sim.has_gui():
             scales = torch.ones_like(self._forces_vacuum, device=self.device)
-            scales[:, :, 2][self._mask_in_contact_inside_cone] = self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] / -350 # 380 --> max force from LSTM
+            scales[:, :, 2][self._mask_in_contact_inside_cone] = self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] / (350/3) # 380 --> max force from LSTM
             translations = self._robot.data.body_pos_w[:, self._robot_vacuum_ids, :]
             translations[:, :, 2][torch.logical_not(self._mask_in_contact_inside_cone)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
             translations[:, :, 2][self._mask_in_contact_inside_cone] += -scales[:, :, 2][self._mask_in_contact_inside_cone] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
@@ -744,8 +747,8 @@ class GraceEnv(DirectRLEnv):
         for key, value in self.foot_faces.items():
             foot_j1, foot_j2 = self.check_face[key][0], self.check_face[key][1]
             foot_a,  foot_b  = self.foot_faces[key][0], self.foot_faces[key][1]
-            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1) #cross dopo = dell'eq5 per j=1
-            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1) #cross dopo = dell'eq5 per j=2
+            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=-1) #cross dopo = dell'eq5 per j=1
+            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=-1) #cross dopo = dell'eq5 per j=2
             #NB self.force_w[foot_j1] contiene la forza di reazione dovuta al vacuum, non ci sono M0 e F0 (M0 and F0 are external components of the tumbling moment)
             self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1) # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
 
