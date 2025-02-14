@@ -391,6 +391,39 @@ class GraceEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+    def compute_transform(self, base_transl, orientation_vector, scaling_vector=None, index=1, height=1.0, device="cpu"):
+        """
+        Funzione per calcolare la traslazione, l'orientamento, lo scaling e l'indice per un dato set di dati.
+
+        Args:
+            base_transl (torch.Tensor): Tensor di traslazione base.
+            orientation_vector (torch.Tensor): Vettore usato per calcolare il quaternione.
+            scaling_vector (torch.Tensor, optional): Vettore usato per calcolare lo scaling. Default None.
+            index (int): Valore da assegnare agli indici. Default 1.
+            height (float): Valore di offset per la traslazione. Default 1.0.
+            device (str): Dispositivo su cui lavorare (es. "cuda" o "cpu").
+
+        Returns:
+            tuple: (transl, orien, indices, scaling)
+        """
+        transl = base_transl.clone()
+        transl[:, 2] += height  # Aggiunge l'altezza
+
+        # Se il vettore di orientamento è nullo, si assegna il quaternione unitario
+        if torch.all(orientation_vector == 0):
+            orien = torch.zeros([base_transl.shape[0], 4], device=device)
+            orien[:, 0] = 1  # Quaternione unitario
+        else:
+            orien = supsi_utils.vector_to_quaternion(orientation_vector, device)
+
+        indices = torch.ones(base_transl.shape[0], device=device) * index
+
+        scaling = torch.ones([base_transl.shape[0], 3], device=device)
+        if scaling_vector is not None:
+            scaling[:, 0] = torch.norm(scaling_vector / 9.81, dim=1) #uses 0 as Z frame
+
+        return transl, orien, indices, scaling
+
     # @track_time
     def _pre_physics_step(self, actions: torch.Tensor):
         global cnt_tracktime
@@ -457,8 +490,8 @@ class GraceEnv(DirectRLEnv):
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
-        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
-        #
+        # self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
+        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -350/6
 
         # VISUALIZZAZIONE VACUUM
         if self.sim.has_gui():
@@ -479,60 +512,43 @@ class GraceEnv(DirectRLEnv):
             vacuum_indices[vacuum_mask] = 2
 
             self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
-        #     if hasattr(self, 'com_w'):
-                # height = 0.0
-                #
-                # transl_com = self.com_w
-                # transl_com[:, 2] += height
-                # orien_com = torch.zeros([self.com_w.shape[0], 4], device=self.device)
-                # orien_com[:, 0] = 1
-                # indices_com = torch.ones(transl_com.shape[0], device=self.device)
-                # scaling_com = torch.ones([transl_com.shape[0], 3], device=self.device)
-                #
-                # transl_a_gi = self.com_w
-                # transl_a_gi[:, 2] += height
-                # orien_a_gi = supsi_utils.vector_to_quaternion(self.a_gi_w, self.device)
-                # indices_a_gi = torch.ones(orien_a_gi.shape[0], device=self.device) * 2
-                # scaling_a_gi = torch.ones([transl_a_gi.shape[0], 3], device=self.device)
-                # scaling_a_gi[:, 2] = torch.norm(self.a_gi_w / 9.81, dim=1)
+            if hasattr(self, 'ag_total_w'):
 
-                # transl_gravity = self.com_w
-                # transl_gravity[:, 2] += height
-                # orien_gravity = supsi_utils.vector_to_quaternion(self._robot.data.GRAVITY_VEC_W, self.device)
-                # indices_gravity = torch.ones(orien_gravity.shape[0], device=self.device) * 3
-                # scaling_gravity = torch.ones([transl_gravity.shape[0], 3], device=self.device)
-                #
-                # transl_ag_total = self.com_w
-                # transl_ag_total[:, 2] += height
-                # orien_ag_total = supsi_utils.vector_to_quaternion(self.ag_total_w, self.device)
-                # indices_ag_total = torch.ones(orien_ag_total.shape[0], device=self.device) * 4
-                # scaling_ag_total = torch.ones([transl_ag_total.shape[0], 3], device=self.device)
-                # scaling_ag_total[:, 2] = torch.norm(self.ag_total_w / 9.81, dim=1)
+                # Definizione delle trasformazioni
+                height = 1.0
+                device = self.device
 
-                # """
-                # se a_gilim è [0, 0, 0] orient vanno a nan e scaling a 0 (sparisce la freccia)
-                # """
-                # transl_a_gilim = self.com_w.clone()
-                # transl_a_gilim[:, 2] += height
-                # orien_a_gilim = supsi_utils.vector_to_quaternion(self.a_gilim_w, self.device)
-                # indices_a_gilim = torch.ones(transl_a_gilim.shape[0], device=self.device) * 5
-                # scaling_a_gilim = torch.ones([transl_a_gilim.shape[0], 3], device=self.device)
-                # scaling_a_gilim[:, 2] = torch.norm(self.a_gilim_w / 9.81, dim=1)
+                transforms = [
+                    # name,         transl,         orient,                             #scaling,           #index
+                    ("com",         self.com_w,     torch.zeros_like(self.com_w),       None,               1),
+                    ("a_gi",        self.com_w,     self.a_gi_w,                        self.a_gi_w,        2),
+                    ("gravity",     self.com_w,     self._robot.data.GRAVITY_VEC_W,     None,               3),
+                    ("ag_total",    self.com_w,     self.ag_total_w,                    self.ag_total_w,    4),
+                    ("a_gilim",     self.com_w,     self.a_gilim_w,                     self.a_gilim_w,     5),
+                ]
 
-                # transl_total = torch.cat((
-                #     transl_com, transl_a_gi, transl_a_gilim
-                # ), 0)
-                # orien_total = torch.cat((
-                #     orien_com, orien_a_gi, orien_a_gilim
-                # ), 0)
-                # indices_total = torch.cat((
-                #     indices_com, indices_a_gi, indices_a_gilim
-                # ), 0)
-                # scaling_total = torch.abs(torch.cat((
-                #     scaling_com, scaling_a_gi, scaling_a_gilim
-                # ), 0))
-                # self.triangle_visualizer.visualize(translations=transl_total, orientations=orien_total, marker_indices=indices_total, scales=scaling_total)
-                # self.triangle_visualizer.visualize(translations=transl_com, marker_indices=indices_com)
+                # Calcolo dei tensori
+                transl_list, orien_list, indices_list, scaling_list = [], [], [], []
+                for _, base_transl, orientation, scaling, index in transforms:
+                    transl, orien, indices, scaling = self.compute_transform(
+                        base_transl, orientation, scaling, index, height, device
+                    )
+                    transl_list.append(transl)
+                    orien_list.append(orien)
+                    indices_list.append(indices)
+                    scaling_list.append(scaling)
+
+                # Concatenazione dei tensori
+                transl_total = torch.cat(transl_list, dim=0)
+                orien_total = torch.cat(orien_list, dim=0)
+                indices_total = torch.cat(indices_list, dim=0)
+                scaling_total = torch.abs(torch.cat(scaling_list, dim=0))
+
+                # Visualizzazione
+                self.triangle_visualizer.visualize(
+                    translations=transl_total, orientations=orien_total,
+                    marker_indices=indices_total, scales=scaling_total
+                )
 
             # foot_pos_w = self._robot.data.body_pos_w[:, self._robot_foot_ids_center_list, :]
             # foot_pos_fl = foot_pos_w.flatten(end_dim=1)
@@ -700,8 +716,8 @@ class GraceEnv(DirectRLEnv):
     def _theta_marg_and_a_marg(self):
         # Gravito-inertial acceleration
         acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
-        ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
-        self.a_gi_w = (self._robot.data.GRAVITY_VEC_W *  9.81) - ag_total_w
+        self.ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
+        self.a_gi_w = (self._robot.data.GRAVITY_VEC_W *  9.81) - self.ag_total_w
 
         # Center of mass
         self.com_w = torch.sum(

@@ -181,23 +181,23 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
             ),
             "a_gi": sim_utils.UsdFileCfg( # taken from GREEN_ARROW_X_MARKER_CFG
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
-                scale=(0.2, 0.2, 0.8),
-                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.2, 0.8)),
+                scale=(0.2, 0.2, 1.),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)), #agi rossa
             ),
             "gravity": sim_utils.UsdFileCfg(
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
-                scale=(0.2, 0.2, 0.8),
-                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 0.0)),
+                scale=(0.2, 0.2, 1.),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.1, 0.9, 0.1)), #gravity verde
             ),
             "ag_total": sim_utils.UsdFileCfg(
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
-                scale=(0.2, 0.2, 0.8),
-                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+                scale=(0.2, 0.2, 1.),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.2, 0.8)), #ag blu
             ),
             "a_gilim": sim_utils.UsdFileCfg(
                 usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/UIElements/arrow_x.usd",
-                scale=(0.2, 0.2, 0.8),
-                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1., 1., 1.)),
+                scale=(0.2, 0.2, 1.),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1., 1., 1.)), #agilim bianca
             )
         }
     )
