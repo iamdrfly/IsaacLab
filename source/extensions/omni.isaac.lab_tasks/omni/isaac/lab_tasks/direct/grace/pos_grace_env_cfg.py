@@ -263,33 +263,33 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     # color_scheme = "height" #["height", "random", None]
 
 
-    position_tracking_reward_scale  = 10.*2.5
-    heading_tracking_reward_scale   = 5.*2
+    position_tracking_reward_scale  = 10.
+    heading_tracking_reward_scale   = 5.
     joint_vel_reward_scale          = -0.001
-    joint_torque_reward_scale       = -0.0002*2
+    joint_torque_reward_scale       = -0.00001
     joint_vel_limit_reward_scale    = -1.
     joint_torque_limit_reward_scale = -0.2
-    base_acc_reward_scale           = -0.001/2.5
+    base_acc_reward_scale           = -0.001
     base_lin_acc_weight             = 1.
-    base_ang_acc_weight             = 0.02*1.5
-    feet_acc_reward_scale           = -0.002/10
+    base_ang_acc_weight             = 0.02
+    feet_acc_reward_scale           = -0.002
     action_rate_reward_scale        = -0.01
-    max_feet_contact_force          = 600
-    feet_contact_force_reward_scale = -0.00001*20 #--------------------
+    max_feet_contact_force          = 700
+    feet_contact_force_reward_scale = -0.00001
     wait_time                       = 0.2
     dont_wait_reward_scale          = -1.
-    move_in_direction_reward_scale  = 1.*1.5
+    move_in_direction_reward_scale  = 1.
     stand_min_dist                  = 0.25
     stand_min_ang                   = 0.5
-    stand_at_target_reward_scale    = -1.
+    stand_at_target_reward_scale    = -0.5
     undesired_contact_reward_scale  = -1.
-    stumble_reward_scale            = -1.1
-    feet_termination_force          = 1200
-    termination_reward_scale        = -230.
-    theta_marg_sum_reward_scale     = 0.01
+    stumble_reward_scale            = -1
+    feet_termination_force          = 1500
+    termination_reward_scale        = -200.
+    theta_marg_sum_reward_scale     = 0.01 #0.01 -----------------------------------------------------
     a_marg_reward_scale             = 0.
     three_finger_reward_scale       = 0.
-    vacuum_action_rate_reward_scale = -0.001
+    vacuum_action_rate_reward_scale = 0.1
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
 
@@ -306,7 +306,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
+        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #ROUGH_TERRAINS_CFG_OEM, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
