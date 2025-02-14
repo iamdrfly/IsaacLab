@@ -490,8 +490,7 @@ class GraceEnv(DirectRLEnv):
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
-        # self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
-        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -350/6
+        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
 
         # VISUALIZZAZIONE VACUUM
         if self.sim.has_gui():
