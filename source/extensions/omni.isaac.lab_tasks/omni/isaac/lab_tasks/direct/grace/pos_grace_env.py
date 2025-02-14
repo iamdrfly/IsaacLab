@@ -217,16 +217,21 @@ class GraceEnv(DirectRLEnv):
             "fl-rr": ["fl", "rr"],
             "fr-rl": ["fr", "rl"]
         }
+
+
         self.mass_times_agilim_dot_n_agab_w = {}
         self.theta_marg = {}
         self.a_marg = {}
         self.is_inside_poly = {}
+        self.fake_is_inside_poly = {}
 
-        self._amarg = 0
-        self._thetamarg = 0
-        self._sumthetamarg = 0
+        self._amarg = torch.zeros(self.num_envs, device=self.device)
+        self._thetamarg = torch.zeros(self.num_envs, device=self.device)
+        self._sumthetamarg = torch.zeros(self.num_envs, device=self.device)
 
-        self.a_gilim_w = 0
+        self.a_gilim_dot_versor_ngab_w = {}
+        self.fake_a_gilim_dot_versor_ngab_w = {}
+        self.a_gi_dot_versor_ngab_w = {}
 
         for act in self._robot.actuators.keys():
             self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
@@ -236,6 +241,8 @@ class GraceEnv(DirectRLEnv):
         self._num_bodies_vacuum = len(self._cs_vacuum_ids)
         self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
         self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
+        self._fake_fj = torch.zeros((self.num_envs, 3), device=self.device)
+        self._fake_fj[:,2] = -350
 
         self._lstm_vacuum = LSTM_Helper()
         self._vacuum_time = None
@@ -304,7 +311,7 @@ class GraceEnv(DirectRLEnv):
             self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids], ids
         ]
         # offset the position command by the current root height
-        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]/4
+        self.pos_command_w[env_ids, 2] += self._robot.data.default_root_state[env_ids, 2]
 
         if self.cfg.pose_command.simple_heading:
             # set heading command to point towards target
@@ -682,6 +689,7 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def _theta_marg_and_a_marg(self):
+        epsilon = 1e-8
         # Gravito-inertial acceleration
         acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
         ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
@@ -706,6 +714,15 @@ class GraceEnv(DirectRLEnv):
             "fr-rl": torch.cross(self.com_w - self.pos_foot_w["fr"], self.com_w - self.pos_foot_w["rl"], dim=1),
         }
 
+        self.versor_n_gab_w = {
+            "fl-fr": self.safe_normalize(self.n_gab_w["fl-fr"]),
+            "fr-rr": self.safe_normalize(self.n_gab_w["fr-rr"]),
+            "rr-rl": self.safe_normalize(self.n_gab_w["rr-rl"]),
+            "rl-fl": self.safe_normalize(self.n_gab_w["rl-fl"]),
+            "fl-rr": self.safe_normalize(self.n_gab_w["fl-rr"]),
+            "fr-rl": self.safe_normalize(self.n_gab_w["fr-rl"]),
+        }
+
         # A four legged robot has six possible tumbling axes. This function simply computes a bitmap if either the axis is active (leg is in contact) or not
         self.bitmap_contatc = {
                 "fl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0,
@@ -722,75 +739,73 @@ class GraceEnv(DirectRLEnv):
 
         #Tensore costruito dal dizionario bitmap con uno specifico ordine che viene utilizzato per calcolare le metriche
         is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
-
-        # Normalize tumbling axis vectors
-        for key, value in self.n_gab_w.items():
-            self.n_gab_w[key] = self.safe_normalize(value)
+        #
+        # for key, value in self.n_gab_w.items():
+        #     self.n_gab_w[key] = self.safe_normalize(value)
 
         # Compute mass_times_agilim_dot_n_agab vedi Eq.(5) di https://doi.org/10.13180/clawar.2020.24-26.08.18
         for key, value in self.foot_faces.items():
             foot_j1, foot_j2 = self.check_face[key][0], self.check_face[key][1]
             foot_a,  foot_b  = self.foot_faces[key][0], self.foot_faces[key][1]
-            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=1) #cross dopo = dell'eq5 per j=1
-            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=1) #cross dopo = dell'eq5 per j=2
+            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=-1) #cross dopo = dell'eq5 per j=1
+            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=-1) #cross dopo = dell'eq5 per j=2
             #NB self.force_w[foot_j1] contiene la forza di reazione dovuta al vacuum, non ci sono M0 e F0 (M0 and F0 are external components of the tumbling moment)
-            self.mass_times_agilim_dot_n_agab_w[key] = torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1) # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
+            # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
+            ##### componente di agi,lim nella direzione di ngab.
+            self.a_gilim_dot_versor_ngab_w[key] =  (torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1))/(torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False)*self.tot_mass[0])
+            self.a_gi_dot_versor_ngab_w[key] = torch.sum(self.a_gi_w*self.versor_n_gab_w[key], dim=1)
+            self.is_inside_poly[key] = self.a_gi_dot_versor_ngab_w[key] <= self.a_gilim_dot_versor_ngab_w[key]
 
-        # Devo trovare la a_{gi,lim} risolvendo m*a_{gi,lim} \cdot n_{gab} = mass_times_agilim_dot_n_agab_w. NB: e' un sistema composto da 6 equzioni
-        for key in self.n_gab_w.keys():
-            #metto a 0 le n_{gab} che non sono attive (i.e. se lato del poliedro non e' attivo significa che uno o entrambi i piedi che definiscono il lato non sono a contatto)
-            mask = torch.logical_not(self.bitmap_contatc[key])
-            self.n_gab_w[key][mask] = torch.zeros((3), device=self.device)
-            self.mass_times_agilim_dot_n_agab_w[key][mask] = 0.
+            ##### DA ADD IPOTETICA aglim doce Fj non 0 se a contatto cosi da avere il caso limite
+            fa = torch.zeros_like(self._fake_fj)
+            fb = torch.zeros_like(self._fake_fj)
+            #### NON BASTA CHE SIA SOLO A CONTATTO DA AGGIUNGERE CONTROLLO SU ANGOLO
+            fa[self.bitmap_contatc[foot_a]] =  math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids_center[foot_a]], self._fake_fj.unsqueeze(dim=1)).squeeze(dim=1)[self.bitmap_contatc[foot_a]]
+            fb[self.bitmap_contatc[foot_b]] =  math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids_center[foot_b]], self._fake_fj.unsqueeze(dim=1)).squeeze(dim=1)[self.bitmap_contatc[foot_b]]
+            self.fake_a_gilim_dot_versor_ngab_w[key] = (torch.sum(fa * temp_j1, dim=1) + torch.sum(fb * temp_j2, dim=1))/(torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False)*self.tot_mass[0])
+            self.fake_is_inside_poly[key] = self.a_gi_dot_versor_ngab_w[key] <= self.fake_a_gilim_dot_versor_ngab_w[key]
 
-        #CONVERTO IL SISTEMA IN MATRICI
-        #A*x = b dove A e' una matrice di 6x3, x e' una 3x1 e b e' 6x1.
-        A = torch.stack([self.n_gab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
-        b = torch.stack([self.mass_times_agilim_dot_n_agab_w[key] for key in self.n_gab_w.keys()], dim=1).to(self.device)
+        A = torch.stack([self.versor_n_gab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
+        b = torch.stack([self.a_gilim_dot_versor_ngab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
         b = b.unsqueeze(2)  # (num_envs, num_faces, 1)
 
+        fake_b = torch.stack([self.fake_a_gilim_dot_versor_ngab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
+        fake_b = fake_b.unsqueeze(2)  # (num_envs, num_faces, 1)
+
         if A.shape[1] >= 3:  # Assicura che ci siano almeno 3 vincoli
-            # A^{#} * A * x = A^{#} * b --> x = A^{#} * b  dove x e' la a_{gi,lim}
-            A_pseudo_inv = torch.linalg.pinv(A)
-            self.a_gilim_w = torch.matmul(A_pseudo_inv, b).squeeze(-1)
+           # A^{#} * A * x = A^{#} * b --> x = A^{#} * b  dove x e' la a_{gi,lim}
+           A_pseudo_inv = torch.linalg.pinv(A)
+           self.vec_a_gilim_w = torch.matmul(A_pseudo_inv, b).squeeze(-1)
+           self.fake_vec_a_gilim_w = torch.matmul(A_pseudo_inv, fake_b).squeeze(-1)
+           #FAI CONTROLLO PROIETTANFO IL VETTORE TROVATO DEVE RISPETTARE vec_a_gilim_w * n_gab_w[key] = self.a_gilim_dot_versor_ngab_w[key]
+           for key, values in self.n_gab_w.items():
+               if torch.any(torch.sum(self.vec_a_gilim_w * self.n_gab_w[key],dim=1) != self.a_gilim_dot_versor_ngab_w[key]):
+                   print("qualcosa non va nel calcolo della aglim")
+                   pippo = 1
         else:
             raise ValueError("Numero insufficiente di vincoli per calcolare a_{gi,lim}.")
 
-
-        rew_eth = torch.zeros(self.num_envs, device=self.device)
-        rew_amarg = torch.zeros(self.num_envs, device=self.device)
-        epsilon = 1e-8
-
-        for key in self.foot_faces.keys():
-
-            #versore del lato del poliedro
-            n_agb = self.n_gab_w[key]
-
-            # Calcolo delle norme con aggiunta di epsilon per evitare divisioni per zero
-            norm_n_agb = torch.linalg.norm(n_agb, dim=1) + epsilon
-            norm_a_gi_w = torch.linalg.norm(self.a_gi_w, dim=1) + epsilon
-            norm_a_gilim_w = torch.linalg.norm(self.a_gilim_w, dim=1) + epsilon
-
+        for key, value in self.foot_faces.items():
             # Calcolo di cos_theta_agi e cos_theta_gilim con denominatore corretto
             # Our first proposition for quantitative analysis is the inclination margin for gravito-inertial acceleration, which is the angle between the GIA vector and the limit plane for a tumbling
             # axis. The minimum value among all tumbling axes is the inclination margin θ_{marg} vedi Eq.(7) https://doi.org/10.13180/clawar.2020.24-26.08.18
-            cos_theta_agi = torch.clip(torch.sum(n_agb * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
-            cos_theta_gilim = torch.clip(norm_a_gilim_w / norm_a_gi_w, -1.0, 1.0)
+
+            norm_n_agb = torch.linalg.norm(self.n_gab_w[key], dim=1) + epsilon
+            norm_a_gi_w = torch.linalg.norm(self.a_gi_w, dim=1) + epsilon
+            #norm_a_gi_lim_w = torch.abs(self.a_gilim_dot_versor_ngab_w[key]) + epsilon
+            norm_a_gi_lim_w = torch.linalg.norm(self.vec_a_gilim_w, dim=1) + epsilon
+
+            cos_theta_agi   = torch.clip(torch.sum(self.n_gab_w[key] * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
+            cos_theta_gilim = torch.clip(norm_a_gi_lim_w / norm_a_gi_w, -1.0, 1.0)
 
             # Calcolo di theta_marg per ogni lato. The value is normalized with  − π/2 to ensure negative angle if the GIA vector points out of the polyhedron. Eq.2 DOI: 10.1109/IROS55552.2023.10341665
             self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
 
             # Calcolo di a_marg per ogni lato. The acceleration margin represents the maximum acceleration increment that can be applied in any direction that does not cause the robot to tumble. Eq 8 https://doi.org/10.13180/clawar.2020.24-26.08.18
-            self.a_marg[key] = norm_a_gilim_w - torch.sum(n_agb * self.a_gi_w, dim=1) / norm_n_agb
+            self.a_marg[key] = norm_a_gi_lim_w - self.a_gi_dot_versor_ngab_w[key]
 
-            # Calcolo di is_inside_poly
-            # a destra del <= puo essere 0 se non usi le vacuum oppuere devi verificare con la a_{gi,lim}
-            self.is_inside_poly[key] = torch.sum(n_agb * self.a_gi_w, dim=1) <= torch.sum(n_agb * self.a_gilim_w, dim=1)
-
-
-            # Aggiornamento di rew_eth e rew_amarg
-            rew_eth[:] += self.theta_marg[key]
-            rew_amarg[:] += self.a_marg[key]
+        rew_eth = torch.zeros(self.num_envs, device=self.device)
+        rew_amarg = torch.zeros(self.num_envs, device=self.device)
 
         a_marg_stack        = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
         theta_marg_stack    = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
