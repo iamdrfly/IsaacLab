@@ -501,24 +501,39 @@ class GraceEnv(DirectRLEnv):
 
         # VISUALIZZAZIONE VACUUM
         if self.sim.has_gui():
+            is_active_mask = self._processed_action_vacuums > 0.5
+            in_cone_mask = self._mask_in_contact_inside_cone
+            active_and_cone = torch.logical_and(is_active_mask, in_cone_mask)
+
             scales = torch.ones_like(self._forces_vacuum, device=self.device)
-            scales[:, :, 2][self._mask_in_contact_inside_cone] = self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] / (350/3) # 380 --> max force from LSTM
+            scales[:, :, 2][active_and_cone] = self._forces_vacuum[:, :, 2][active_and_cone] / (350/3) # 380 --> max force from LSTM
             translations = self._robot.data.body_pos_w[:, self._robot_vacuum_ids, :]
-            translations[:, :, 2][torch.logical_not(self._mask_in_contact_inside_cone)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
-            translations[:, :, 2][self._mask_in_contact_inside_cone] += -scales[:, :, 2][self._mask_in_contact_inside_cone] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][torch.logical_not(active_and_cone)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][active_and_cone] += -scales[:, :, 2][active_and_cone] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
             scales = scales.reshape((-1, 3))
             translations = translations.reshape((-1, 3))
 
             no_contact_mask = (self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]==0).flatten()
-            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, self._mask_in_contact_inside_cone==False).flatten()
-            vacuum_mask = self._mask_in_contact_inside_cone.flatten()
-            vacuum_indices = torch.ones_like(vacuum_mask, device=self.device).int()
+
+            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, active_and_cone==False).flatten()
+            vacuum_mask = active_and_cone.flatten()
+            vacuum_indices = torch.ones_like(no_contact_mask, device=self.device).int()
             vacuum_indices[no_contact_mask] = 0
             vacuum_indices[contact_mask] = 1
             vacuum_indices[vacuum_mask] = 2
 
+            #SOLVE WARNING AND MISSING MARKERS (Issue here: https://github.com/isaac-sim/IsaacLab/issues/1517)
+            num_different_markers = len(self.cfg.vacuum_visualizer.markers)
+            fake_marker_pos = torch.zeros((num_different_markers, 3), device=self.device)
+            fake_marker_scales = torch.ones((num_different_markers, 3), device=self.device)
+            fake_marker_indices = torch.arange(0, num_different_markers, device=self.device)
+
+            translations = torch.cat((translations, fake_marker_pos), dim=0)
+            scales = torch.cat((scales, fake_marker_scales), dim=0)
+            vacuum_indices = torch.cat((vacuum_indices, fake_marker_indices), dim=0)
+
             self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
-            if hasattr(self, 'ag_total_w'):
+            if hasattr(self, 'ag_total_w') and False:
 
                 # Definizione delle trasformazioni
                 height = 1.0

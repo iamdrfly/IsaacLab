@@ -151,17 +151,17 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
         prim_path="/Visuals/vacuumMarker",
         markers={
             "cylinder_no_contact": sim_utils.CylinderCfg(
-                radius=0.02,
+                radius=0.01,
                 height=0.5,
                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.5, 0.5, 0.5)), #0-grey
             ),
             "cylinder_contact": sim_utils.CylinderCfg(
-                radius=0.02,
+                radius=0.01,
                 height=0.5,
                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0., 0., 1.)), #1-blu
             ),
             "cylinder_vacuum": sim_utils.CylinderCfg(
-                radius=0.02,
+                radius=0.01,
                 height=0.5,
                 visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0., 1., 0.)), #2-green
             )
