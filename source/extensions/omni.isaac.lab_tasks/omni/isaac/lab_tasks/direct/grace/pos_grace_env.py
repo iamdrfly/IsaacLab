@@ -530,7 +530,7 @@ class GraceEnv(DirectRLEnv):
                     ("a_gi",        self.com_w,     self.a_gi_w,                        self.a_gi_w,        2),
                     ("gravity",     self.com_w,     self._robot.data.GRAVITY_VEC_W,     None,               3),
                     ("ag_total",    self.com_w,     self.ag_total_w,                    self.ag_total_w,    4),
-                    ("a_gilim",     self.com_w,     self.a_gilim_w,                     self.a_gilim_w,     5),
+                    # ("a_gilim",     self.com_w,     self.a_gilim_w,                     self.a_gilim_w,     5),
                 ]
 
                 # Calcolo dei tensori
@@ -570,7 +570,6 @@ class GraceEnv(DirectRLEnv):
     def _apply_action(self):
         #se non usi vacuum
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
-
         #se usi vacuum
         self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_vacuum_ids)
@@ -784,47 +783,13 @@ class GraceEnv(DirectRLEnv):
             # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
             ##### componente di agi,lim nella direzione di ngab.
             self.a_gilim_dot_versor_ngab_w[key] =  (torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1))/(torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False)*self.tot_mass[0])
-            self.a_gi_dot_versor_ngab_w[key] = torch.sum(self.a_gi_w*self.versor_n_gab_w[key], dim=1)
+            self.a_gi_dot_versor_ngab_w[key] = torch.sum(self.a_gi_w*self.versor_n_gab_w[key], dim=1)*self.bitmap_contatc[key]
             self.is_inside_poly[key] = self.a_gi_dot_versor_ngab_w[key] <= self.a_gilim_dot_versor_ngab_w[key]
-
-            ##### DA ADD IPOTETICA aglim doce Fj non 0 se a contatto cosi da avere il caso limite
-            fa = torch.zeros_like(self._fake_fj)
-            fb = torch.zeros_like(self._fake_fj)
-            #### NON BASTA CHE SIA SOLO A CONTATTO DA AGGIUNGERE CONTROLLO SU ANGOLO
-            fa[self.bitmap_contatc[foot_a]] =  math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids_center[foot_a]], self._fake_fj.unsqueeze(dim=1)).squeeze(dim=1)[self.bitmap_contatc[foot_a]]
-            fb[self.bitmap_contatc[foot_b]] =  math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids_center[foot_b]], self._fake_fj.unsqueeze(dim=1)).squeeze(dim=1)[self.bitmap_contatc[foot_b]]
-            self.fake_a_gilim_dot_versor_ngab_w[key] = (torch.sum(fa * temp_j1, dim=1) + torch.sum(fb * temp_j2, dim=1))/(torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False)*self.tot_mass[0])
-            self.fake_is_inside_poly[key] = self.a_gi_dot_versor_ngab_w[key] <= self.fake_a_gilim_dot_versor_ngab_w[key]
-
-        A = torch.stack([self.versor_n_gab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
-        b = torch.stack([self.a_gilim_dot_versor_ngab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
-        b = b.unsqueeze(2)  # (num_envs, num_faces, 1)
-
-        fake_b = torch.stack([self.fake_a_gilim_dot_versor_ngab_w[key] for key in self.versor_n_gab_w.keys()], dim=1).to(self.device)
-        fake_b = fake_b.unsqueeze(2)  # (num_envs, num_faces, 1)
-
-        if A.shape[1] >= 3:  # Assicura che ci siano almeno 3 vincoli
-           # A^{#} * A * x = A^{#} * b --> x = A^{#} * b  dove x e' la a_{gi,lim}
-           A_pseudo_inv = torch.linalg.pinv(A)
-           self.vec_a_gilim_w = torch.matmul(A_pseudo_inv, b).squeeze(-1)
-           self.fake_vec_a_gilim_w = torch.matmul(A_pseudo_inv, fake_b).squeeze(-1)
-           #FAI CONTROLLO PROIETTANFO IL VETTORE TROVATO DEVE RISPETTARE vec_a_gilim_w * n_gab_w[key] = self.a_gilim_dot_versor_ngab_w[key]
-           for key, values in self.n_gab_w.items():
-               if torch.any(torch.sum(self.vec_a_gilim_w * self.n_gab_w[key],dim=1) != self.a_gilim_dot_versor_ngab_w[key]):
-                   print("qualcosa non va nel calcolo della aglim")
-                   pippo = 1
-        else:
-            raise ValueError("Numero insufficiente di vincoli per calcolare a_{gi,lim}.")
-
-        for key, value in self.foot_faces.items():
-            # Calcolo di cos_theta_agi e cos_theta_gilim con denominatore corretto
-            # Our first proposition for quantitative analysis is the inclination margin for gravito-inertial acceleration, which is the angle between the GIA vector and the limit plane for a tumbling
-            # axis. The minimum value among all tumbling axes is the inclination margin θ_{marg} vedi Eq.(7) https://doi.org/10.13180/clawar.2020.24-26.08.18
 
             norm_n_agb = torch.linalg.norm(self.n_gab_w[key], dim=1) + epsilon
             norm_a_gi_w = torch.linalg.norm(self.a_gi_w, dim=1) + epsilon
-            #norm_a_gi_lim_w = torch.abs(self.a_gilim_dot_versor_ngab_w[key]) + epsilon
-            norm_a_gi_lim_w = torch.linalg.norm(self.vec_a_gilim_w, dim=1) + epsilon
+            norm_a_gi_lim_w = torch.abs(self.a_gilim_dot_versor_ngab_w[key]) + epsilon
+            # norm_a_gi_lim_w = torch.linalg.norm(self.vec_a_gilim_w, dim=1) + epsilon
 
             cos_theta_agi   = torch.clip(torch.sum(self.n_gab_w[key] * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
             cos_theta_gilim = torch.clip(norm_a_gi_lim_w / norm_a_gi_w, -1.0, 1.0)
