@@ -287,7 +287,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     feet_termination_force          = 1500
     termination_reward_scale        = -200.
     theta_marg_sum_reward_scale     = 0.00036741392464462934 #0.01 -----------------------------------------------------
-    a_marg_reward_scale             = 0.
+    a_marg_reward_scale             = 0.0001
     three_finger_reward_scale       = 0.
     vacuum_action_rate_reward_scale = -0.01
     show_flat_patches = False # da passare come args

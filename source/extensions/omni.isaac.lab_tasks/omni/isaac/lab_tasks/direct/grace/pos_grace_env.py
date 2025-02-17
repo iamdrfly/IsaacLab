@@ -112,8 +112,8 @@ class GraceEnv(DirectRLEnv):
                 "termination",
                 "three_finger",
                 "theta_marg_sum",
-                "vacuum_action_rate_l2"
-                # "a_marg"
+                "vacuum_action_rate_l2",
+                "a_marg"
 
             ]
         }
@@ -792,7 +792,7 @@ class GraceEnv(DirectRLEnv):
             # norm_a_gi_lim_w = torch.linalg.norm(self.vec_a_gilim_w, dim=1) + epsilon
 
             cos_theta_agi   = torch.clip(torch.sum(self.n_gab_w[key] * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
-            cos_theta_gilim = torch.clip(norm_a_gi_lim_w / norm_a_gi_w, -1.0, 1.0)
+            cos_theta_gilim = torch.clip(norm_a_gi_lim_w*0 / norm_a_gi_w, -1.0, 1.0)
 
             # Calcolo di theta_marg per ogni lato. The value is normalized with  − π/2 to ensure negative angle if the GIA vector points out of the polyhedron. Eq.2 DOI: 10.1109/IROS55552.2023.10341665
             self.theta_marg[key] = (torch.arccos(cos_theta_agi) - torch.arccos(cos_theta_gilim)) - torch.pi / 2
@@ -973,7 +973,7 @@ class GraceEnv(DirectRLEnv):
             "three_finger":             normed_exponential          * self.cfg.three_finger_reward_scale        * self.step_dt,
             "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
             "vacuum_action_rate_l2":    vacuum_action_rate          * self.cfg.vacuum_action_rate_reward_scale  * self.step_dt,
-            # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
+            "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
         # Logging
