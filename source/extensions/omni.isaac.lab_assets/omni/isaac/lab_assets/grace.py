@@ -126,7 +126,7 @@ GRACE_CFG = ArticulationCfg(
         # collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.02, rest_offset=0.0),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.2),
+        pos=(0.0, 0.0, 0.4),
         # joint_pos={
         #     "LF_HAA": -0.7854,  #
         #     "LF_HFE":  1.5708,  #

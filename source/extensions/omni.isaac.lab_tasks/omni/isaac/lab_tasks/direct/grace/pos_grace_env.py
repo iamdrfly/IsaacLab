@@ -178,7 +178,7 @@ class GraceEnv(DirectRLEnv):
 
         self._min_finger_contacts = 3
 
-        self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
+        self._undesired_contact_body_ids, _ = [], self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
         self._all_joints, _ = self._robot.find_joints(['^(?!.*(_FOOT|ankle).*).*$'])
 
 
@@ -454,7 +454,7 @@ class GraceEnv(DirectRLEnv):
         self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
         self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
         self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
-        self._processed_action_vacuum = torch.where(self._processed_action_vacuum >0.5, 1., 0.)*350/3
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum >0.5, 1., 1.)*350/3
         # self._processed_action_vacuum = torch.ones_like(self._processed_action_vacuum)*350/3
         self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,1)  # ripeto 3 volte (3 dita) nella dim 1
 
@@ -497,7 +497,7 @@ class GraceEnv(DirectRLEnv):
         self._forces_vacuum = torch.zeros_like(self._forces_vacuum, device=self.device)
         # the force obtained from the lstm is opposite because we want the reaction force (frame foot - z up, force points down)
         # self._forces_vacuum[:, :, 2][mask] = -self._lstm_vacuum.predict(self._vacuum_time, self._processed_action_vacuum)[mask]
-        self._forces_vacuum[:, :, 2][self._mask_in_contact_inside_cone] = -self._processed_action_vacuums[self._mask_in_contact_inside_cone]
+        self._forces_vacuum[:, :, 2] = -self._processed_action_vacuums
 
         # VISUALIZZAZIONE VACUUM
         if self.sim.has_gui():
@@ -506,17 +506,17 @@ class GraceEnv(DirectRLEnv):
             active_and_cone = torch.logical_and(is_active_mask, in_cone_mask)
 
             scales = torch.ones_like(self._forces_vacuum, device=self.device)
-            scales[:, :, 2][active_and_cone] = self._forces_vacuum[:, :, 2][active_and_cone] / (350/3) # 380 --> max force from LSTM
+            scales[:, :, 2][is_active_mask] = self._forces_vacuum[:, :, 2][is_active_mask] / (350/3) # 380 --> max force from LSTM
             translations = self._robot.data.body_pos_w[:, self._robot_vacuum_ids, :]
-            translations[:, :, 2][torch.logical_not(active_and_cone)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
-            translations[:, :, 2][active_and_cone] += -scales[:, :, 2][active_and_cone] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][torch.logical_not(is_active_mask)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
+            translations[:, :, 2][is_active_mask] += -scales[:, :, 2][is_active_mask] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
             scales = scales.reshape((-1, 3))
             translations = translations.reshape((-1, 3))
 
             no_contact_mask = (self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]==0).flatten()
 
-            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, active_and_cone==False).flatten()
-            vacuum_mask = active_and_cone.flatten()
+            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, is_active_mask==False).flatten()
+            vacuum_mask = is_active_mask.flatten()
             vacuum_indices = torch.ones_like(no_contact_mask, device=self.device).int()
             vacuum_indices[no_contact_mask] = 0
             vacuum_indices[contact_mask] = 1
@@ -533,43 +533,43 @@ class GraceEnv(DirectRLEnv):
             vacuum_indices = torch.cat((vacuum_indices, fake_marker_indices), dim=0)
 
             self._vacuum_visualizer.visualize(translations=translations, scales=scales, marker_indices=vacuum_indices)
-            if hasattr(self, 'ag_total_w') and False:
-
-                # Definizione delle trasformazioni
-                height = 1.0
-                device = self.device
-
-                transforms = [
-                    # name,         transl,         orient,                             #scaling,           #index
-                    ("com",         self.com_w,     torch.zeros_like(self.com_w),       None,               1),
-                    ("a_gi",        self.com_w,     self.a_gi_w,                        self.a_gi_w,        2),
-                    ("gravity",     self.com_w,     self._robot.data.GRAVITY_VEC_W,     None,               3),
-                    ("ag_total",    self.com_w,     self.ag_total_w,                    self.ag_total_w,    4),
-                    # ("a_gilim",     self.com_w,     self.a_gilim_w,                     self.a_gilim_w,     5),
-                ]
-
-                # Calcolo dei tensori
-                transl_list, orien_list, indices_list, scaling_list = [], [], [], []
-                for _, base_transl, orientation, scaling, index in transforms:
-                    transl, orien, indices, scaling = self.compute_transform(
-                        base_transl, orientation, scaling, index, height, device
-                    )
-                    transl_list.append(transl)
-                    orien_list.append(orien)
-                    indices_list.append(indices)
-                    scaling_list.append(scaling)
-
-                # Concatenazione dei tensori
-                transl_total = torch.cat(transl_list, dim=0)
-                orien_total = torch.cat(orien_list, dim=0)
-                indices_total = torch.cat(indices_list, dim=0)
-                scaling_total = torch.abs(torch.cat(scaling_list, dim=0))
-
-                # Visualizzazione
-                self.triangle_visualizer.visualize(
-                    translations=transl_total, orientations=orien_total,
-                    marker_indices=indices_total, scales=scaling_total
-                )
+            # if hasattr(self, 'ag_total_w') and False:
+            #
+            #     # Definizione delle trasformazioni
+            #     height = 1.0
+            #     device = self.device
+            #
+            #     transforms = [
+            #         # name,         transl,         orient,                             #scaling,           #index
+            #         ("com",         self.com_w,     torch.zeros_like(self.com_w),       None,               1),
+            #         ("a_gi",        self.com_w,     self.a_gi_w,                        self.a_gi_w,        2),
+            #         ("gravity",     self.com_w,     self._robot.data.GRAVITY_VEC_W,     None,               3),
+            #         ("ag_total",    self.com_w,     self.ag_total_w,                    self.ag_total_w,    4),
+            #         # ("a_gilim",     self.com_w,     self.a_gilim_w,                     self.a_gilim_w,     5),
+            #     ]
+            #
+            #     # Calcolo dei tensori
+            #     transl_list, orien_list, indices_list, scaling_list = [], [], [], []
+            #     for _, base_transl, orientation, scaling, index in transforms:
+            #         transl, orien, indices, scaling = self.compute_transform(
+            #             base_transl, orientation, scaling, index, height, device
+            #         )
+            #         transl_list.append(transl)
+            #         orien_list.append(orien)
+            #         indices_list.append(indices)
+            #         scaling_list.append(scaling)
+            #
+            #     # Concatenazione dei tensori
+            #     transl_total = torch.cat(transl_list, dim=0)
+            #     orien_total = torch.cat(orien_list, dim=0)
+            #     indices_total = torch.cat(indices_list, dim=0)
+            #     scaling_total = torch.abs(torch.cat(scaling_list, dim=0))
+            #
+            #     # Visualizzazione
+            #     self.triangle_visualizer.visualize(
+            #         translations=transl_total, orientations=orien_total,
+            #         marker_indices=indices_total, scales=scaling_total
+            #     )
 
             # foot_pos_w = self._robot.data.body_pos_w[:, self._robot_foot_ids_center_list, :]
             # foot_pos_fl = foot_pos_w.flatten(end_dim=1)
@@ -1000,22 +1000,22 @@ class GraceEnv(DirectRLEnv):
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
-        died = torch.any(torch.max(torch.norm(net_contact_forces[:, :, self._cs_base_id], dim=-1), dim=1)[0] > 1.0, dim=1)
+        # died = torch.any(torch.max(torch.norm(net_contact_forces[:, :, self._cs_base_id], dim=-1), dim=1)[0] > 1.0, dim=1)
 
         tot_force = dict()
         tot_mask = dict()
         mask = torch.zeros(self.num_envs, device= self.device)
-        for id in self._cs_foot_ids.keys():
-            tot_force[id] =     torch.sum(net_contact_forces[:, :, self._cs_foot_ids[id]], dim=2, keepdim=True)
-            tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
-            mask = torch.logical_or(mask,tot_mask[id])
+        # for id in self._cs_foot_ids.keys():
+        #     tot_force[id] =     torch.sum(net_contact_forces[:, :, self._cs_foot_ids[id]], dim=2, keepdim=True)
+        #     tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
+        #     mask = torch.logical_or(mask,tot_mask[id])
 
         # if torch.any(died):
         #     print("died-termination-base-contact")
         # if torch.any(mask):
         #     print("mask")
-        died =  torch.logical_or(died,mask)
-        return died, time_out
+        # died =  torch.logical_or(died,mask)
+        return mask, time_out
 
     # @track_time
     def _update_pose_command(self):
