@@ -481,6 +481,12 @@ class GraceEnv(DirectRLEnv):
         self._mask_inside_joint_limit = torch.logical_and(mask_xz, mask_yz)
         self._mask_in_contact_inside_cone = torch.logical_and(self._mask_inside_joint_limit, self._vacuum_in_contact)
 
+        # self._vacuum_act_mask = self._processed_action_vacuums>1.
+        # self._good_vacuum = torch.logical_and(self._mask_inside_joint_limit , self._mask_in_contact_inside_cone)
+        # self._good_vacuum = torch.logical_and(self._good_vacuum, self._vacuum_act_mask).float()
+        # self._good_vacuum = torch.where(self._good_vacuum>0, 1/3, -1/3)
+
+
 
         #
         # contact_time[torch.logical_not(self._mask_inside_joint_limit)] = 0.
@@ -814,11 +820,15 @@ class GraceEnv(DirectRLEnv):
         amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
         theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
 
+
         # #IN ACCORDO CON THESIS CEWEILBEL
         self._amarg         = torch.max(zeros, amin).to(device=self.device)
+        # self._amarg         = torch.sum(dim=0).to(device=self.device)
         # #IN ACCORDO ARTICOLO VALSECCHI
         self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
 
+        # mask_positive_theta_amarg = torch.logical_and(self._amarg>0, self._sumthetamarg>0)
+        # _good_vacuum_ = self._good_vacuum * mask_positive_theta_amarg
 
     def get_amarg(self):
         return self._amarg
