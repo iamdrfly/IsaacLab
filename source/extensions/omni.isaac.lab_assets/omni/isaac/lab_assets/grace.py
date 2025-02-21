@@ -99,20 +99,21 @@ GRACE_SPHERICAL_CFG = DCMotorCfg(
 # Configuration - Articulation.
 ##
 import os
+
 # usd_path = os.getcwd() + "/usd/grace_fixed.usd"
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical.usd"
 # usd_path = os.getcwd() + "/usd/grace_xy_tendons.usd"
-usd_path = os.getcwd() + "/usd/grace_fake_spherical_center.usd"
+usd_path = os.getcwd() + "/usd/grace_HARD.usd"
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical_center_disk.usd"
 
 # usd_path = os.getcwd() + "/usd/grace_spherical.usd"
 
 GRACE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path= usd_path,
+        usd_path=usd_path,
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            disable_gravity=False,
+            disable_gravity=True,
             retain_accelerations=False,
             linear_damping=0.0,
             angular_damping=0.0,
@@ -126,7 +127,8 @@ GRACE_CFG = ArticulationCfg(
         # collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.02, rest_offset=0.0),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.4),
+        pos=(0.0, 0.0, 1.0),
+        rot=(0.0, 0.0, -0.71, 0.71),
         # joint_pos={
         #     "LF_HAA": -0.7854,  #
         #     "LF_HFE":  1.5708,  #
@@ -162,11 +164,10 @@ GRACE_CFG = ArticulationCfg(
             "RR_KFE": -1.5708,  # 0
         },
     ),
-    actuators={"HAA": GRACE_HAA_CFG, "HFE": GRACE_HFE_CFG,"KFE": GRACE_KFE_CFG}, #"sphericals": GRACE_SPHERICAL_CFG
+    actuators={"HAA": GRACE_HAA_CFG, "HFE": GRACE_HFE_CFG, "KFE": GRACE_KFE_CFG},  # "sphericals": GRACE_SPHERICAL_CFG
     # actuators={"legs": GRACE_LSTM_ACTUATOR_CFG},
     soft_joint_pos_limit_factor=0.95,
 )
-
 
 ##
 # Configuration - Sensors.

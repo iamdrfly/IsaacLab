@@ -320,6 +320,30 @@ def supsi_single_cube_vert_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg
     # round off the heights to the nearest vertical step
     return np.rint(hf_raw).astype(np.int16)
 
+@height_field_to_mesh
+def supsi_wall_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiSingleCubeTerrainCfg) -> np.ndarray:
+    # switch parameters to discrete units
+    # -- horizontal scale
+    width_pixels = int(cfg.size[0] / cfg.horizontal_scale)
+    length_pixels = int(cfg.size[1] / cfg.horizontal_scale)
+    # -- center of the terrain
+    center_x = int(width_pixels / 2)
+    center_y = int(length_pixels / 2)
+
+    hf_raw = np.zeros((width_pixels, length_pixels))
+
+    height_max = 3000
+
+
+    # Genera il cubo nell'angolo scelto
+    hf_raw[:, center_y+6:] = height_max
+
+    if cfg.inverted is True:
+        hf_raw = -hf_raw
+
+    # round off the heights to the nearest vertical step
+    return np.rint(hf_raw).astype(np.int16)
+
 
 @height_field_to_mesh
 def supsi_multi_cube_terrain(difficulty: float, cfg: supsi_hf_terrains_cfg.SupsiMultiCubeTerrainCfg) -> np.ndarray:

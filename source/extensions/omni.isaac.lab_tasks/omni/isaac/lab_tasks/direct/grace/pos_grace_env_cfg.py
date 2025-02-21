@@ -22,7 +22,7 @@ from omni.isaac.lab.utils import configclass
 ##
 from omni.isaac.lab_assets.grace import GRACE_CFG  # isort: skip
 from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
-from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG, SUPSI_FLAT_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG  # isort: skip
+from omni.isaac.lab.terrains.config.supsi_rough import SUPSI_ROUGH_TERRAINS_CFG, CUBES_SUPSI_TERRAINS_CFG, SUPSI_FLAT_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG, ELIA_TERRAINS_CFG  # isort: skip
 from omni.isaac.lab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 import random
@@ -306,7 +306,7 @@ class PosGraceRoughEnvCfg(PosGraceFlatEnvCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=SUPSI_ROUGH_TERRAINS_CFG, #ROUGH_TERRAINS_CFG_OEM, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
+        terrain_generator=ELIA_TERRAINS_CFG, #ROUGH_TERRAINS_CFG_OEM, #SUPSI_ROUGH_TERRAINS_CFG, #CUBES_SUPSI_VERT_TERRAINS_CFG, #, #CUBES_SUPSI_TERRAINS_CFG, CUBES_SUPSI_VERT_TERRAINS_CFG SUPSI_FLAT_TERRAINS_CFG
         max_init_terrain_level=9,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(

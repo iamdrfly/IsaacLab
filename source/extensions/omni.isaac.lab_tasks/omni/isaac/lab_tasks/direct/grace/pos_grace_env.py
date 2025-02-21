@@ -45,8 +45,10 @@ from functools import wraps
 execution_times = {}
 call_counts = {}
 
+
 def track_time(func):
     """Decoratore per tracciare il tempo di esecuzione di una funzione."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -68,12 +70,14 @@ def track_time(func):
 
     return wrapper
 
+
 # Funzione per esportare i tempi medi
 def export_execution_times(filename="execution_times.txt"):
     with open(filename, "w") as f:
         for func_name, total_time in execution_times.items():
             avg_time = total_time / call_counts[func_name]
             f.write(f"{func_name}: chiamate={call_counts[func_name]}, tempo medio={avg_time:.6f} s\n")
+
 
 class GraceEnv(DirectRLEnv):
     cfg: PosGraceFlatEnvCfg | PosGraceRoughEnvCfg
@@ -122,14 +126,14 @@ class GraceEnv(DirectRLEnv):
         self._robot_base_id, _ = self._robot.find_bodies("base")
 
         self._cs_foot_ids_center = {'rl': self._contact_sensor.find_bodies("LR_FOOT_FINGER_00")[0],
-                          'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER_00")[0],
-                          'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER_00")[0],
-                          'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER_00")[0]}
+                                    'fr': self._contact_sensor.find_bodies("RF_FOOT_FINGER_00")[0],
+                                    'fl': self._contact_sensor.find_bodies("LF_FOOT_FINGER_00")[0],
+                                    'rr': self._contact_sensor.find_bodies("RR_FOOT_FINGER_00")[0]}
 
         self._robot_foot_ids_center = {'rl': self._robot.find_bodies("LR_FOOT_FINGER_00")[0],
-                          'fr': self._robot.find_bodies("RF_FOOT_FINGER_00")[0],
-                          'fl': self._robot.find_bodies("LF_FOOT_FINGER_00")[0],
-                          'rr': self._robot.find_bodies("RR_FOOT_FINGER_00")[0]}
+                                       'fr': self._robot.find_bodies("RF_FOOT_FINGER_00")[0],
+                                       'fl': self._robot.find_bodies("LF_FOOT_FINGER_00")[0],
+                                       'rr': self._robot.find_bodies("RR_FOOT_FINGER_00")[0]}
 
         self._cs_foot_ids = {
             'rl': self._contact_sensor.find_bodies(r"^(?!LR_FOOT_FINGER_00).*LR_FOOT_FINGER.*")[0],  # Excludes LR_FOOT_FINGER_00
@@ -145,16 +149,13 @@ class GraceEnv(DirectRLEnv):
             'rr': self._robot.find_bodies(r"^(?!RR_FOOT_FINGER_00).*RR_FOOT_FINGER.*")[0]  # Excludes RR_FOOT_FINGER_00
         }
 
-
         self._cs_vacuum_ids = [self._cs_foot_ids[idx] for idx in self._cs_foot_ids.keys()]
         self._cs_vacuum_name = [idx for idx in self._cs_foot_ids.keys()]
         self._cs_vacuum_ids = list(itertools.chain.from_iterable(self._cs_vacuum_ids))
 
-
         self._robot_vacuum_ids = [self._robot_foot_ids[idx] for idx in self._robot_foot_ids.keys()]
         self._robot_vacuum_name = [idx for idx in self._robot_foot_ids.keys()]
-        self._robot_vacuum_ids = list(itertools.chain.from_iterable(self._robot_vacuum_ids ))
-
+        self._robot_vacuum_ids = list(itertools.chain.from_iterable(self._robot_vacuum_ids))
 
         self._cs_id_acc_foot = self._cs_foot_ids_center
         self._robot_id_acc_foot = self._robot_foot_ids_center
@@ -162,9 +163,8 @@ class GraceEnv(DirectRLEnv):
         self._cs_foot_ids_center_list = [self._cs_foot_ids_center[idx] for idx in self._cs_foot_ids_center.keys()]
         self._cs_foot_ids_center_list = list(itertools.chain.from_iterable(self._cs_foot_ids_center_list))
 
-
         self._robot_foot_ids_center_list = [self._robot_foot_ids_center[idx] for idx in self._robot_foot_ids_center.keys()]
-        self._robot_foot_ids_center_list = list(itertools.chain.from_iterable(self._robot_foot_ids_center_list ))
+        self._robot_foot_ids_center_list = list(itertools.chain.from_iterable(self._robot_foot_ids_center_list))
 
         # zero_force_finger = torch.tensor(self.num_envs, 3)
         # self._vacuum_force = {  "rl": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
@@ -173,14 +173,12 @@ class GraceEnv(DirectRLEnv):
         #                         "fr": {"finger_1": zero_force_finger.clone(), "finger_2": zero_force_finger.clone(), "finger_3": zero_force_finger.clone()},
         # }
 
-
         # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
 
         self._min_finger_contacts = 3
 
         self._undesired_contact_body_ids, _ = [], self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
         self._all_joints, _ = self._robot.find_joints(['^(?!.*(_FOOT|ankle).*).*$'])
-
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
@@ -193,8 +191,8 @@ class GraceEnv(DirectRLEnv):
         self.error_heading = torch.zeros(self.num_envs, device=self.device)
         self.remaining_time = torch.zeros(self.num_envs, device=self.device)
 
-        self.joint_vel_limit = torch.zeros((self.num_envs,len(self._all_joints)), device=self.device)
-        self.joint_effort_limit = torch.zeros_like(self.joint_vel_limit )
+        self.joint_vel_limit = torch.zeros((self.num_envs, len(self._all_joints)), device=self.device)
+        self.joint_effort_limit = torch.zeros_like(self.joint_vel_limit)
 
         self.tot_mass = self._robot.data.default_mass.sum(dim=1).unsqueeze(-1).to(device=self.device)
 
@@ -219,7 +217,6 @@ class GraceEnv(DirectRLEnv):
             "fr-rl": ["fr", "rl"]
         }
 
-
         self.mass_times_agilim_dot_n_agab_w = {}
         self.theta_marg = {}
         self.a_marg = {}
@@ -235,15 +232,15 @@ class GraceEnv(DirectRLEnv):
         self.a_gi_dot_versor_ngab_w = {}
 
         for act in self._robot.actuators.keys():
-            self.joint_vel_limit[:,self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
+            self.joint_vel_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
             self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
-        #definizione degli attributi per le vacuum force
+        # definizione degli attributi per le vacuum force
         self._num_bodies_vacuum = len(self._cs_vacuum_ids)
-        self._forces_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
-        self._torques_vacuum = torch.zeros((self.num_envs,  self._num_bodies_vacuum, 3), device=self.device)
+        self._forces_vacuum = torch.zeros((self.num_envs, self._num_bodies_vacuum, 3), device=self.device)
+        self._torques_vacuum = torch.zeros((self.num_envs, self._num_bodies_vacuum, 3), device=self.device)
         self._fake_fj = torch.zeros((self.num_envs, 3), device=self.device)
-        self._fake_fj[:,2] = -350
+        self._fake_fj[:, 2] = -350
 
         self._lstm_vacuum = LSTM_Helper()
         self._vacuum_time = None
@@ -257,7 +254,7 @@ class GraceEnv(DirectRLEnv):
     # @track_time
     def _update_pose_metrics(self):
         self.error_pos = torch.norm(self.pos_command_w - self._robot.data.root_pos_w, dim=1)
-        self.error_pos_xy = torch.norm(self.pos_command_w[:,:2] - self._robot.data.root_pos_w[:,:2] , dim=1)
+        self.error_pos_xy = torch.norm(self.pos_command_w[:, :2] - self._robot.data.root_pos_w[:, :2], dim=1)
         self.error_heading = torch.abs(wrap_to_pi(self.heading_command_w - self._robot.data.heading_w))
 
     # @track_time
@@ -276,7 +273,7 @@ class GraceEnv(DirectRLEnv):
         self.pos_command_w[env_ids, 0] += r.uniform_(*self.cfg.pose_command.ranges.pos_x)
         self.pos_command_w[env_ids, 1] += r.uniform_(*self.cfg.pose_command.ranges.pos_y)
 
-        #setto il commando nuovo per visualizzazione
+        # setto il commando nuovo per visualizzazione
         self._pos_command_visualizer.pos_command_w = self.pos_command_w
 
         # self.pos_command_w[env_ids, 2] += self.robot.data.default_root_state[env_ids, 2] #da mettere altezza qui
@@ -354,10 +351,10 @@ class GraceEnv(DirectRLEnv):
             # we add a height scanner for perceptive locomotion
             self._height_scanner = RayCaster(self.cfg.height_scanner)
             self.scene.sensors["height_scanner"] = self._height_scanner
-            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
+            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain)
         elif isinstance(self.cfg, PosGraceFlatEnvCfg):
             # we add a height scanner for perceptive locomotion
-            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain )
+            self._pos_command_visualizer = SupsiTerrainBasedPose2dCommand(self.cfg.pose_command, self, self._terrain)
 
         self._vacuum_visualizer = VisualizationMarkers(self.cfg.vacuum_visualizer)
         self.triangle_visualizer = VisualizationMarkers(self.cfg.triangle_visualizer)
@@ -427,7 +424,7 @@ class GraceEnv(DirectRLEnv):
 
         scaling = torch.ones([base_transl.shape[0], 3], device=device)
         if scaling_vector is not None:
-            scaling[:, 0] = torch.norm(scaling_vector / 9.81, dim=1) #uses 0 as Z frame
+            scaling[:, 0] = torch.norm(scaling_vector / 9.81, dim=1)  # uses 0 as Z frame
 
         return transl, orien, indices, scaling
 
@@ -443,20 +440,20 @@ class GraceEnv(DirectRLEnv):
 
         self._actions = actions.clone()
 
-        #se non usi vacuum
+        # se non usi vacuum
         # self._processed_actions = self.cfg.action_scale * self._actions + self._robot.data.default_joint_pos[:,self._all_joints]
 
-        #se usi vacuum
-        self._actions_pos = self._actions[:,:-4]
+        # se usi vacuum
+        self._actions_pos = self._actions[:, :-4]
         self._processed_actions_pos = self.cfg.action_scale * self._actions_pos + self._robot.data.default_joint_pos[:, self._all_joints]
 
-        self._action_vacuum = self._actions[:,-4:]
+        self._action_vacuum = self._actions[:, -4:]
         self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
-        self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
-        self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
-        self._processed_action_vacuum = torch.where(self._processed_action_vacuum >0.5, 1., 1.)*350/3
+        self._processed_action_vacuum = torch.abs(self._processed_action_vacuum)
+        self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum, min=0., max=1.)
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum > 0.5, 1., 1.) * 350 / 3
         # self._processed_action_vacuum = torch.ones_like(self._processed_action_vacuum)*350/3
-        self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,1)  # ripeto 3 volte (3 dita) nella dim 1
+        self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3, 1)  # ripeto 3 volte (3 dita) nella dim 1
 
         # self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
         # contact_time = self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids]
@@ -464,23 +461,22 @@ class GraceEnv(DirectRLEnv):
         ##vedo le forze di rezione nel W
         self._finger_reaction_forces_w = self._contact_sensor.data.net_forces_w[:, self._cs_vacuum_ids]
         # #converto forze nel body piedi
-        self._finger_reaction_forces_b  = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._robot_vacuum_ids], self._finger_reaction_forces_w )
-        self._vacuum_in_contact  = self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0.
+        self._finger_reaction_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:, self._robot_vacuum_ids], self._finger_reaction_forces_w)
+        self._vacuum_in_contact = self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids] > 0.
 
         # #verifico che sono all interno del cono del giunto sferico
         spherical_joint_limit = 45.0
-        theta_xz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,2],self._finger_reaction_forces_w[:,:,0])*180.0/torch.pi
-        theta_yz_w  = torch.atan2(self._finger_reaction_forces_w[:,:,2],self._finger_reaction_forces_w[:,:,1])*180.0/torch.pi
-        theta_xz    = torch.atan2(self._finger_reaction_forces_b[:,:,2],self._finger_reaction_forces_b[:,:,0])*180.0/torch.pi
-        theta_yz    = torch.atan2(self._finger_reaction_forces_b[:,:,2],self._finger_reaction_forces_b[:,:,1])*180.0/torch.pi
+        theta_xz_w = torch.atan2(self._finger_reaction_forces_w[:, :, 2], self._finger_reaction_forces_w[:, :, 0]) * 180.0 / torch.pi
+        theta_yz_w = torch.atan2(self._finger_reaction_forces_w[:, :, 2], self._finger_reaction_forces_w[:, :, 1]) * 180.0 / torch.pi
+        theta_xz = torch.atan2(self._finger_reaction_forces_b[:, :, 2], self._finger_reaction_forces_b[:, :, 0]) * 180.0 / torch.pi
+        theta_yz = torch.atan2(self._finger_reaction_forces_b[:, :, 2], self._finger_reaction_forces_b[:, :, 1]) * 180.0 / torch.pi
         #
-        mask_xz = torch.logical_and(theta_xz > (90-spherical_joint_limit), theta_xz < (90+spherical_joint_limit))
-        mask_yz = torch.logical_and(theta_yz > (90-spherical_joint_limit), theta_yz < (90+spherical_joint_limit))
+        mask_xz = torch.logical_and(theta_xz > (90 - spherical_joint_limit), theta_xz < (90 + spherical_joint_limit))
+        mask_yz = torch.logical_and(theta_yz > (90 - spherical_joint_limit), theta_yz < (90 + spherical_joint_limit))
         #
 
         self._mask_inside_joint_limit = torch.logical_and(mask_xz, mask_yz)
         self._mask_in_contact_inside_cone = torch.logical_and(self._mask_inside_joint_limit, self._vacuum_in_contact)
-
 
         #
         # contact_time[torch.logical_not(self._mask_inside_joint_limit)] = 0.
@@ -506,23 +502,23 @@ class GraceEnv(DirectRLEnv):
             active_and_cone = torch.logical_and(is_active_mask, in_cone_mask)
 
             scales = torch.ones_like(self._forces_vacuum, device=self.device)
-            scales[:, :, 2][is_active_mask] = self._forces_vacuum[:, :, 2][is_active_mask] / (350/3) # 380 --> max force from LSTM
+            scales[:, :, 2][is_active_mask] = self._forces_vacuum[:, :, 2][is_active_mask] / (350 / 3)  # 380 --> max force from LSTM
             translations = self._robot.data.body_pos_w[:, self._robot_vacuum_ids, :]
             translations[:, :, 2][torch.logical_not(is_active_mask)] += self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
             translations[:, :, 2][is_active_mask] += -scales[:, :, 2][is_active_mask] * self.cfg.vacuum_visualizer.markers["cylinder_no_contact"].height / 2
             scales = scales.reshape((-1, 3))
             translations = translations.reshape((-1, 3))
 
-            no_contact_mask = (self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]==0).flatten()
+            no_contact_mask = (self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids] == 0).flatten()
 
-            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:,self._cs_vacuum_ids]>0, is_active_mask==False).flatten()
+            contact_mask = torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_vacuum_ids] > 0, is_active_mask == False).flatten()
             vacuum_mask = is_active_mask.flatten()
             vacuum_indices = torch.ones_like(no_contact_mask, device=self.device).int()
             vacuum_indices[no_contact_mask] = 0
             vacuum_indices[contact_mask] = 1
             vacuum_indices[vacuum_mask] = 2
 
-            #SOLVE WARNING AND MISSING MARKERS (Issue here: https://github.com/isaac-sim/IsaacLab/issues/1517)
+            # SOLVE WARNING AND MISSING MARKERS (Issue here: https://github.com/isaac-sim/IsaacLab/issues/1517)
             num_different_markers = len(self.cfg.vacuum_visualizer.markers)
             fake_marker_pos = torch.zeros((num_different_markers, 3), device=self.device)
             fake_marker_scales = torch.ones((num_different_markers, 3), device=self.device)
@@ -583,10 +579,10 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def _apply_action(self):
-        #se non usi vacuum
+        # se non usi vacuum
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
-        #se usi vacuum
-        self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
+        # se usi vacuum
+        # self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
@@ -596,7 +592,7 @@ class GraceEnv(DirectRLEnv):
         height_data = None
         if isinstance(self.cfg, PosGraceRoughEnvCfg):
             height_data = (
-                self._height_scanner.data.pos_w[:, 2].unsqueeze(1) - self._height_scanner.data.ray_hits_w[..., 2] - 0.5
+                    self._height_scanner.data.pos_w[:, 2].unsqueeze(1) - self._height_scanner.data.ray_hits_w[..., 2] - 0.5
             ).clip(-1.0, 1.0)
 
         self._update_pose_command()
@@ -623,15 +619,15 @@ class GraceEnv(DirectRLEnv):
             [
                 tensor
                 for tensor in (
-                    self._robot.data.root_lin_vel_b, #3
-                    self._robot.data.root_ang_vel_b, #3
-                    self._robot.data.projected_gravity_b, #3
-                    self._robot.data.joint_pos[:,self._all_joints], #12
-                    self._robot.data.joint_vel[:,self._all_joints], #12
-                    self.pose_command(),  # 4
-                    self._remaining_time(),  # 1
-                    height_data,#187 -->196
-                )
+                self._robot.data.root_lin_vel_b,  # 3
+                self._robot.data.root_ang_vel_b,  # 3
+                self._robot.data.projected_gravity_b,  # 3
+                self._robot.data.joint_pos[:, self._all_joints],  # 12
+                self._robot.data.joint_vel[:, self._all_joints],  # 12
+                self.pose_command(),  # 4
+                self._remaining_time(),  # 1
+                height_data,  # 187 -->196
+            )
                 if tensor is not None
             ],
             dim=-1,
@@ -683,27 +679,25 @@ class GraceEnv(DirectRLEnv):
     # @track_time
     def compute_foot_properties(self, name):
 
-        #SE VUOI USARE VERSIONE SENZA CENTRO
+        # SE VUOI USARE VERSIONE SENZA CENTRO
         # pos_fingers = self._robot.data.body_pos_w[:, self._foot_ids[name], :]
         # self.pos_foot_w[name] = pos_fingers.mean(dim=1)  # Media delle posizioni delle dita
         # self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._foot_ids[name]].sum(dim=1) > 0
 
-        #SE VUOI USARE VERSIONE CON CENTRO
+        # SE VUOI USARE VERSIONE CON CENTRO
         self.pos_foot_w[name] = self._robot.data.body_pos_w[:, self._robot_foot_ids_center[name], :].squeeze()
         self.foot_in_contact[name] = self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center[name]] > 1.
-
-
 
         # #ordinate _forces_vacuum in accordo a vacuum_ids e vacuum_names
         vacuum = torch.zeros_like(self._forces_vacuum[:, :3, :], device=self.device)
         if name in "rl":
-            vacuum = self._forces_vacuum[:, :3, :]#[17,18,19]
+            vacuum = self._forces_vacuum[:, :3, :]  # [17,18,19]
         if name in "fr":
-            vacuum = self._forces_vacuum[:,3:6,:] #[26,27,28]
+            vacuum = self._forces_vacuum[:, 3:6, :]  # [26,27,28]
         if name in "fl":
-            vacuum = self._forces_vacuum[:,6:9,:] #[23,24,25]
+            vacuum = self._forces_vacuum[:, 6:9, :]  # [23,24,25]
         if name in "rr":
-            vacuum = self._forces_vacuum[:,9:12,:] #[20,21,22]
+            vacuum = self._forces_vacuum[:, 9:12, :]  # [20,21,22]
 
         """gripping force into tumble stability, it can be considered a force to resist an external tearing-off force at the contact point of the gripper"""
         # Fj_b = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids[name]], vacuum)
@@ -713,32 +707,30 @@ class GraceEnv(DirectRLEnv):
         Fj_b = vacuum
 
         """reaction force"""
-        forces_foot_w = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids[name], :] #PERCHE SONO QUELLE RILEVATE DAL SENSORE --> REAZIONE. sono forze uscenti dal terreno (+)
+        forces_foot_w = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids[name], :]  # PERCHE SONO QUELLE RILEVATE DAL SENSORE --> REAZIONE. sono forze uscenti dal terreno (+)
 
         # verifico dove sto usando la forza di vacuum
-        mask = torch.norm(Fj_b, dim = -1)>1.
+        mask = torch.norm(Fj_b, dim=-1) > 1.
 
-        #Esprimo le forze delle ventose nel frame W. NB le ventose sono espresse nel frame relativo all xform delle dita della zampa
+        # Esprimo le forze delle ventose nel frame W. NB le ventose sono espresse nel frame relativo all xform delle dita della zampa
         Fj_w = math_utils.quat_rotate(self._robot.data.body_quat_w[:, self._robot_foot_ids[name]], Fj_b)
 
-        #Inserisco solo forze di reazione delle ventose che sono in contatto nel vettore delle forze di reazione.
-        #NB le forces_foot_w teoricamente non devono essere usate perche contengono sia le forze di reazione date dal puro contatto che quelle dovute al vacuum.
-        #in accordo con https://doi.org/10.13180/clawar.2020.24-26.08.18 SI DOVREBBE TENERE CONTO DELLE SOLE FORZE DI VACUUM
+        # Inserisco solo forze di reazione delle ventose che sono in contatto nel vettore delle forze di reazione.
+        # NB le forces_foot_w teoricamente non devono essere usate perche contengono sia le forze di reazione date dal puro contatto che quelle dovute al vacuum.
+        # in accordo con https://doi.org/10.13180/clawar.2020.24-26.08.18 SI DOVREBBE TENERE CONTO DELLE SOLE FORZE DI VACUUM
         forces_foot_w[mask] = Fj_w[mask]
 
-        #Salvo in force_w la somma dele forze di rezione  per usarle successivamente nel calcolo delle metriche di stabilita
+        # Salvo in force_w la somma dele forze di rezione  per usarle successivamente nel calcolo delle metriche di stabilita
         # self.force_w[name] = forces_foot_w.sum(dim=1)
         self.force_w[name] = Fj_w.sum(dim=1)
-
-
 
     # @track_time
     def _theta_marg_and_a_marg(self):
         epsilon = 1e-8
         # Gravito-inertial acceleration
-        acc_mass_w  = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
-        self.ag_total_w  = acc_mass_w.sum(dim=1) / self.tot_mass
-        self.a_gi_w = (self._robot.data.GRAVITY_VEC_W *  9.81) - self.ag_total_w
+        acc_mass_w = self._robot.data.body_lin_acc_w * self._robot.data.default_mass.unsqueeze(-1).to(device=self.device)
+        self.ag_total_w = acc_mass_w.sum(dim=1) / self.tot_mass
+        self.a_gi_w = (self._robot.data.GRAVITY_VEC_W * 9.81) - self.ag_total_w
 
         # Center of mass
         self.com_w = torch.sum(
@@ -770,20 +762,20 @@ class GraceEnv(DirectRLEnv):
 
         # A four legged robot has six possible tumbling axes. This function simply computes a bitmap if either the axis is active (leg is in contact) or not
         self.bitmap_contatc = {
-                "fl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0,
-                "fr": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0,
-                "rr": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0,
-                "rl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0,
-                "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0),
-                "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0),
-                "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0),
-                "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0),
-                "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0),
-                "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0),
+            "fl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0,
+            "fr": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0,
+            "rr": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0,
+            "rl": self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0,
+            "fl-fr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0),
+            "fr-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0),
+            "rr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0),
+            "rl-fl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0),
+            "fl-rr": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fl"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rr"]].sum(dim=1) > 0),
+            "fr-rl": torch.logical_and(self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["fr"]].sum(dim=1) > 0, self._contact_sensor.data.current_contact_time[:, self._cs_foot_ids_center["rl"]].sum(dim=1) > 0),
         }
 
-        #Tensore costruito dal dizionario bitmap con uno specifico ordine che viene utilizzato per calcolare le metriche
-        is_active           = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
+        # Tensore costruito dal dizionario bitmap con uno specifico ordine che viene utilizzato per calcolare le metriche
+        is_active = torch.stack([self.bitmap_contatc["fl-fr"], self.bitmap_contatc["fr-rr"], self.bitmap_contatc["rr-rl"], self.bitmap_contatc["rl-fl"], self.bitmap_contatc["fl-rr"], self.bitmap_contatc["fr-rl"]], dim=0)
         #
         # for key, value in self.n_gab_w.items():
         #     self.n_gab_w[key] = self.safe_normalize(value)
@@ -791,14 +783,14 @@ class GraceEnv(DirectRLEnv):
         # Compute mass_times_agilim_dot_n_agab vedi Eq.(5) di https://doi.org/10.13180/clawar.2020.24-26.08.18
         for key, value in self.foot_faces.items():
             foot_j1, foot_j2 = self.check_face[key][0], self.check_face[key][1]
-            foot_a,  foot_b  = self.foot_faces[key][0], self.foot_faces[key][1]
-            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=-1) #cross dopo = dell'eq5 per j=1
-            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=-1) #cross dopo = dell'eq5 per j=2
-            #NB self.force_w[foot_j1] contiene la forza di reazione dovuta al vacuum, non ci sono M0 e F0 (M0 and F0 are external components of the tumbling moment)
+            foot_a, foot_b = self.foot_faces[key][0], self.foot_faces[key][1]
+            temp_j1 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j1], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j1], dim=-1)  # cross dopo = dell'eq5 per j=1
+            temp_j2 = torch.cross(self.pos_foot_w[foot_b] - self.pos_foot_w[foot_j2], self.pos_foot_w[foot_a] - self.pos_foot_w[foot_j2], dim=-1)  # cross dopo = dell'eq5 per j=2
+            # NB self.force_w[foot_j1] contiene la forza di reazione dovuta al vacuum, non ci sono M0 e F0 (M0 and F0 are external components of the tumbling moment)
             # parte dopo = del Eq.5 https://doi.org/10.13180/clawar.2020.24-26.08.18
             ##### componente di agi,lim nella direzione di ngab.
-            self.a_gilim_dot_versor_ngab_w[key] =  (torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1))/(torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False)*self.tot_mass[0])
-            self.a_gi_dot_versor_ngab_w[key] = torch.sum(self.a_gi_w*self.versor_n_gab_w[key], dim=1)*self.bitmap_contatc[key]
+            self.a_gilim_dot_versor_ngab_w[key] = (torch.sum(self.force_w[foot_j1] * temp_j1, dim=1) + torch.sum(self.force_w[foot_j2] * temp_j2, dim=1)) / (torch.linalg.norm(self.n_gab_w[key], dim=1, keepdim=False) * self.tot_mass[0])
+            self.a_gi_dot_versor_ngab_w[key] = torch.sum(self.a_gi_w * self.versor_n_gab_w[key], dim=1) * self.bitmap_contatc[key]
             self.is_inside_poly[key] = self.a_gi_dot_versor_ngab_w[key] <= self.a_gilim_dot_versor_ngab_w[key]
 
             norm_n_agb = torch.linalg.norm(self.n_gab_w[key], dim=1) + epsilon
@@ -806,7 +798,7 @@ class GraceEnv(DirectRLEnv):
             norm_a_gi_lim_w = torch.abs(self.a_gilim_dot_versor_ngab_w[key]) + epsilon
             # norm_a_gi_lim_w = torch.linalg.norm(self.vec_a_gilim_w, dim=1) + epsilon
 
-            cos_theta_agi   = torch.clip(torch.sum(self.n_gab_w[key] * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
+            cos_theta_agi = torch.clip(torch.sum(self.n_gab_w[key] * self.a_gi_w, dim=1) / (norm_n_agb * norm_a_gi_w), -1.0, 1.0)
             cos_theta_gilim = torch.clip(norm_a_gi_lim_w / norm_a_gi_w, -1.0, 1.0)
 
             # Calcolo di theta_marg per ogni lato. The value is normalized with  − π/2 to ensure negative angle if the GIA vector points out of the polyhedron. Eq.2 DOI: 10.1109/IROS55552.2023.10341665
@@ -818,37 +810,38 @@ class GraceEnv(DirectRLEnv):
         rew_eth = torch.zeros(self.num_envs, device=self.device)
         rew_amarg = torch.zeros(self.num_envs, device=self.device)
 
-        a_marg_stack        = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
-        theta_marg_stack    = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
-        is_in_poly          = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
+        a_marg_stack = torch.stack([self.a_marg["fl-fr"], self.a_marg["fr-rr"], self.a_marg["rr-rl"], self.a_marg["rl-fl"], self.a_marg["fl-rr"], self.a_marg["fr-rl"]], dim=0)
+        theta_marg_stack = torch.stack([self.theta_marg["fl-fr"], self.theta_marg["fr-rr"], self.theta_marg["rr-rl"], self.theta_marg["rl-fl"], self.theta_marg["fl-rr"], self.theta_marg["fr-rl"]], dim=0)
+        is_in_poly = torch.stack([self.is_inside_poly["fl-fr"], self.is_inside_poly["fr-rr"], self.is_inside_poly["rr-rl"], self.is_inside_poly["rl-fl"], self.is_inside_poly["fl-rr"], self.is_inside_poly["fr-rl"]], dim=0)
 
-        mask_active_in_poly = is_in_poly * is_active # se lato stabile e se lato attivo (tutti e due piedi a contatto)
+        mask_active_in_poly = is_in_poly * is_active  # se lato stabile e se lato attivo (tutti e due piedi a contatto)
         zeros = torch.zeros(self.num_envs, device=self.device)
 
         # CONSIDERO LE METRICHE SOLO SE: at least three legs are contacting the ground and the respective GIA vector points inside the stability polyhedron ALTRIMENTI 0
-        amin        = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
-        theta_min   = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
+        amin = torch.where(mask_active_in_poly.sum(dim=0) >= 3, a_marg_stack.min(dim=0).values, 0)
+        theta_min = torch.where(mask_active_in_poly.sum(dim=0) >= 3, theta_marg_stack.min(dim=0).values, 0)
 
         # #IN ACCORDO CON THESIS CEWEILBEL
-        self._amarg         = torch.max(zeros, amin).to(device=self.device)
+        self._amarg = torch.max(zeros, amin).to(device=self.device)
         # #IN ACCORDO ARTICOLO VALSECCHI
-        self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
-
+        self._sumthetamarg = theta_marg_stack.sum(dim=0).to(device=self.device)
 
     def get_amarg(self):
         return self._amarg
+
     def get_thetamarg(self):
         return self._thetamarg
+
     def get_sumthetamarg(self):
         return self._sumthetamarg
 
     # @track_time
     def _get_rewards(self) -> torch.Tensor:
         cnt = 1
-        #compute remaining time
+        # compute remaining time
         self._remaining_time()
 
-        #XY-Position Tracking
+        # XY-Position Tracking
         self._update_pose_metrics()
 
         self._theta_marg_and_a_marg()
@@ -857,45 +850,45 @@ class GraceEnv(DirectRLEnv):
         # Heading Tracking
         heading_tracking_mapped = torch.where(self.remaining_time < 1, (1 - 0.5 * self.error_heading), 0.0)
         # joint velocity
-        joint_vel = torch.sum(torch.square(self._robot.data.joint_vel[:,self._all_joints]), dim=1)
+        joint_vel = torch.sum(torch.square(self._robot.data.joint_vel[:, self._all_joints]), dim=1)
         # joint torques
-        joint_torques = torch.sum(torch.square(self._robot.data.applied_torque[:,self._all_joints]), dim=1)
+        joint_torques = torch.sum(torch.square(self._robot.data.applied_torque[:, self._all_joints]), dim=1)
         # Joint velocity limit
-        joint_vel_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.joint_vel[:,self._all_joints])-self.joint_vel_limit,min=0), dim=1)
+        joint_vel_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.joint_vel[:, self._all_joints]) - self.joint_vel_limit, min=0), dim=1)
         # Torque limit
-        joint_eff_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.applied_torque[:,self._all_joints])-self.joint_effort_limit,min=0), dim=1)
+        joint_eff_limit = torch.sum(torch.clamp(torch.abs(self._robot.data.applied_torque[:, self._all_joints]) - self.joint_effort_limit, min=0), dim=1)
         # Base acc
         base_acc = (self.cfg.base_lin_acc_weight * torch.square(torch.norm(self._robot.data.body_lin_acc_w[:, self._robot_base_id, :], dim=-1)) +
                     self.cfg.base_ang_acc_weight * torch.square(torch.norm(self._robot.data.body_ang_acc_w[:, self._robot_base_id, :], dim=-1))).squeeze(dim=1)
         # Feet acc and Feet Force
-        feet_acc    = torch.zeros(self.num_envs, device=self.device)
-        feet_force  = torch.zeros(self.num_envs, self._contact_sensor.data.net_forces_w_history.shape[1], device=self.device)
-        stumble     = torch.zeros(self.num_envs, device=self.device)
+        feet_acc = torch.zeros(self.num_envs, device=self.device)
+        feet_force = torch.zeros(self.num_envs, self._contact_sensor.data.net_forces_w_history.shape[1], device=self.device)
+        stumble = torch.zeros(self.num_envs, device=self.device)
         combined_mask = torch.zeros(self.num_envs, device=self.device)
         norm_feet_force_dict = dict()
         # good_foot = torch.zeros(self.num_envs, device=self.device)
-        good_foot = torch.ones(self.num_envs, device=self.device) *- 1 / 3 * 12.
+        good_foot = torch.ones(self.num_envs, device=self.device) * - 1 / 3 * 12.
 
         for foot in self._robot_id_acc_foot.keys():
-            #FEET ACC
-            feet_acc    = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._robot_id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
-            #CONTACT FORCE
+            # FEET ACC
+            feet_acc = feet_acc + torch.norm(self._robot.data.body_lin_acc_w[:, self._robot_id_acc_foot[foot], :], dim=-1).squeeze(dim=-1)
+            # CONTACT FORCE
             norm_feet_force_dict[foot] = torch.norm(torch.sum(self._contact_sensor.data.net_forces_w_history[:, :, self._cs_foot_ids_center[foot]], dim=2), dim=-1)
-            feet_force  = feet_force + torch.clamp(norm_feet_force_dict[foot] - self.cfg.max_feet_contact_force, min=0)** 2
-            #STUMBLE
+            feet_force = feet_force + torch.clamp(norm_feet_force_dict[foot] - self.cfg.max_feet_contact_force, min=0) ** 2
+            # STUMBLE
             net_forces_w = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids_center[foot], :]
-            net_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:,self._robot_foot_ids_center[foot]], net_forces_w)
-            fxy = torch.norm(net_forces_b[:,:, :2], dim=-1)
+            net_forces_b = quat_rotate_inverse(self._robot.data.body_quat_w[:, self._robot_foot_ids_center[foot]], net_forces_w)
+            fxy = torch.norm(net_forces_b[:, :, :2], dim=-1)
             fz = torch.norm(net_forces_b[:, :, 2:], dim=-1)
 
-            stumble = stumble + torch.sum(torch.where(fxy>2*fz,1,0),dim=-1)
-            #TERMINATION FEET CONTACT
-            combined_mask = torch.logical_or(torch.max(norm_feet_force_dict[foot], dim=1)[0] > self.cfg.feet_termination_force,combined_mask)
+            stumble = stumble + torch.sum(torch.where(fxy > 2 * fz, 1, 0), dim=-1)
+            # TERMINATION FEET CONTACT
+            combined_mask = torch.logical_or(torch.max(norm_feet_force_dict[foot], dim=1)[0] > self.cfg.feet_termination_force, combined_mask)
 
-            #GOOD FOOT 3
+            # GOOD FOOT 3
             fz_mask = torch.norm(net_forces_b[:, :, 2:], dim=-1) > 1.
             n_finger_in_contact = fz_mask.float().sum(dim=1)
-            good_foot = good_foot + 1/3 * n_finger_in_contact
+            good_foot = good_foot + 1 / 3 * n_finger_in_contact
 
             # #
             # mask_contact_no_three = torch.logical_and(fz_mask.float().sum(dim=1) >=1, fz_mask.float().sum(dim=1) <3)
@@ -905,8 +898,6 @@ class GraceEnv(DirectRLEnv):
             # mask_contact_three = fz_mask.float().sum(dim=1) == 3
             # good_foot = torch.where(mask_contact_three, good_foot+1., good_foot+0.)
 
-
-
         # if torch.any(feet_force>0.):
         #     print("feet_force>0")
         # if torch.any(combined_mask):
@@ -914,22 +905,22 @@ class GraceEnv(DirectRLEnv):
         feet_force = torch.max(feet_force, dim=-1)[0]
 
         # Action rate
-        action_rate = torch.sum(torch.square(self._actions[:,:-4] - self._previous_actions[:,:-4]), dim=1)
+        action_rate = torch.sum(torch.square(self._actions[:, :-4] - self._previous_actions[:, :-4]), dim=1)
         # Vacuum Action rate
-        vacuum_action_rate = torch.sum(torch.square(self._actions[:,-4:] - self._previous_actions[:,-4:]), dim=1)
+        vacuum_action_rate = torch.sum(torch.square(self._actions[:, -4:] - self._previous_actions[:, -4:]), dim=1)
 
         # Don't wait
         dont_wait = torch.where(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < self.cfg.wait_time, 1., 0.)
         # Move in direction
-        target_vec = self.pos_command_w  - self._robot.data.root_pos_w
-        move_in_direction = torch.sum(self._robot.data.root_lin_vel_b * target_vec, dim=-1) / (torch.norm(self._robot.data.root_lin_vel_b, dim=-1) * torch.norm(target_vec, dim=-1)  + 1e-6)
+        target_vec = self.pos_command_w - self._robot.data.root_pos_w
+        move_in_direction = torch.sum(self._robot.data.root_lin_vel_b * target_vec, dim=-1) / (torch.norm(self._robot.data.root_lin_vel_b, dim=-1) * torch.norm(target_vec, dim=-1) + 1e-6)
         # Stand at target
-        mask = torch.logical_and(torch.where(self.error_pos_xy <self.cfg.stand_min_dist,1,0),torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
-        stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:,self._all_joints] - self._robot.data.joint_pos[:,self._all_joints], dim=-1),0)
+        mask = torch.logical_and(torch.where(self.error_pos_xy < self.cfg.stand_min_dist, 1, 0), torch.where(self.error_heading < self.cfg.stand_min_ang, 1, 0))
+        stand_at_target = torch.where(mask, torch.norm(self._robot.data.default_joint_pos[:, self._all_joints] - self._robot.data.joint_pos[:, self._all_joints], dim=-1), 0)
         # undersired contacts
         net_contact_forces = self._contact_sensor.data.net_forces_w_history
         is_contact = (
-            torch.max(torch.norm(net_contact_forces[:, :, self._undesired_contact_body_ids], dim=-1), dim=1)[0] > 1.0
+                torch.max(torch.norm(net_contact_forces[:, :, self._undesired_contact_body_ids], dim=-1), dim=1)[0] > 1.0
         )
         contacts = torch.sum(is_contact, dim=1)
         # Termination
@@ -947,17 +938,17 @@ class GraceEnv(DirectRLEnv):
         fz_mask = torch.norm(net_forces_b[:, :, 2:], dim=-1) > 1.
         n_finger_in_contact = fz_mask.float().sum(dim=1)
         #
-        mask_not_moving_and_no_four_contact_feet = torch.logical_and(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < 0.2, n_finger_in_contact  != 12)
+        mask_not_moving_and_no_four_contact_feet = torch.logical_and(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < 0.2, n_finger_in_contact != 12)
         if torch.any(mask_not_moving_and_no_four_contact_feet):
             pippo = 1
-        three_finger = good_foot*mask_moving.float()
+        three_finger = good_foot * mask_moving.float()
         three_finger[mask_not_moving_and_no_four_contact_feet] = -1.
 
         air_time = -self._contact_sensor._data.current_air_time[:, self._cs_foot_ids_center_list].sum(dim=-1)
         std = 0.25
 
         norm_airtime = torch.abs(air_time)  # Euclidean norm (default)
-        square_airtime = air_time**2
+        square_airtime = air_time ** 2
 
         # Normed Exponential Kernel: exp(-||x|| / std^2)
         epsilon = 1e-8  # Small value to prevent artifacts
@@ -966,28 +957,26 @@ class GraceEnv(DirectRLEnv):
         # Squared Exponential Kernel: exp(-||x||^2 / (2 * std^2))
         squared_exponential = -torch.exp(-(norm_airtime ** 2) / (2 * std ** 2))
 
-
-
         rewards = {
-            "position_tracking_xy":     position_tracking_mapped    * self.cfg.position_tracking_reward_scale   * self.step_dt,
-            "heading_tracking_xy":      heading_tracking_mapped     * self.cfg.heading_tracking_reward_scale    * self.step_dt,
-            "dof_vel_l2":               joint_vel                   * self.cfg.joint_vel_reward_scale           * self.step_dt,
-            "dof_torques_l2":           joint_torques               * self.cfg.joint_torque_reward_scale        * self.step_dt,
-            "dof_vel_limit":            joint_vel_limit             * self.cfg.joint_vel_limit_reward_scale     * self.step_dt,
-            "dof_torques_limit":        joint_eff_limit             * self.cfg.joint_torque_limit_reward_scale  * self.step_dt,
-            "base_acc":                 base_acc                    * self.cfg.base_acc_reward_scale            * self.step_dt,
-            "feet_acc":                 feet_acc                    * self.cfg.feet_acc_reward_scale            * self.step_dt,
-            "action_rate_l2":           action_rate                 * self.cfg.action_rate_reward_scale         * self.step_dt,
-            "feet_contact_force":       feet_force                  * self.cfg.feet_contact_force_reward_scale  * self.step_dt,
-            "dont_wait":                dont_wait                   * self.cfg.dont_wait_reward_scale           * self.step_dt,
-            "move_in_direction":        move_in_direction           * self.cfg.move_in_direction_reward_scale   * self.step_dt,
-            "stand_at_target":          stand_at_target             * self.cfg.stand_at_target_reward_scale     * self.step_dt,
-            "undesired_contacts":       contacts                    * self.cfg.undesired_contact_reward_scale   * self.step_dt,
-            "stumble":                  stumble                     * self.cfg.stumble_reward_scale             * self.step_dt,
-            "termination":              termination                 * self.cfg.termination_reward_scale         * self.step_dt,
-            "three_finger":             normed_exponential          * self.cfg.three_finger_reward_scale        * self.step_dt,
-            "theta_marg_sum":           theta_marg_sum              * self.cfg.theta_marg_sum_reward_scale      * self.step_dt,
-            "vacuum_action_rate_l2":    vacuum_action_rate          * self.cfg.vacuum_action_rate_reward_scale  * self.step_dt,
+            "position_tracking_xy": position_tracking_mapped * self.cfg.position_tracking_reward_scale * self.step_dt,
+            "heading_tracking_xy": heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
+            "dof_vel_l2": joint_vel * self.cfg.joint_vel_reward_scale * self.step_dt,
+            "dof_torques_l2": joint_torques * self.cfg.joint_torque_reward_scale * self.step_dt,
+            "dof_vel_limit": joint_vel_limit * self.cfg.joint_vel_limit_reward_scale * self.step_dt,
+            "dof_torques_limit": joint_eff_limit * self.cfg.joint_torque_limit_reward_scale * self.step_dt,
+            "base_acc": base_acc * self.cfg.base_acc_reward_scale * self.step_dt,
+            "feet_acc": feet_acc * self.cfg.feet_acc_reward_scale * self.step_dt,
+            "action_rate_l2": action_rate * self.cfg.action_rate_reward_scale * self.step_dt,
+            "feet_contact_force": feet_force * self.cfg.feet_contact_force_reward_scale * self.step_dt,
+            "dont_wait": dont_wait * self.cfg.dont_wait_reward_scale * self.step_dt,
+            "move_in_direction": move_in_direction * self.cfg.move_in_direction_reward_scale * self.step_dt,
+            "stand_at_target": stand_at_target * self.cfg.stand_at_target_reward_scale * self.step_dt,
+            "undesired_contacts": contacts * self.cfg.undesired_contact_reward_scale * self.step_dt,
+            "stumble": stumble * self.cfg.stumble_reward_scale * self.step_dt,
+            "termination": termination * self.cfg.termination_reward_scale * self.step_dt,
+            "three_finger": normed_exponential * self.cfg.three_finger_reward_scale * self.step_dt,
+            "theta_marg_sum": theta_marg_sum * self.cfg.theta_marg_sum_reward_scale * self.step_dt,
+            "vacuum_action_rate_l2": vacuum_action_rate * self.cfg.vacuum_action_rate_reward_scale * self.step_dt,
             # "a_marg":                   a_marg                      * self.cfg.a_marg_reward_scale              * self.step_dt,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
@@ -1004,7 +993,7 @@ class GraceEnv(DirectRLEnv):
 
         tot_force = dict()
         tot_mask = dict()
-        mask = torch.zeros(self.num_envs, device= self.device)
+        mask = torch.zeros(self.num_envs, device=self.device)
         # for id in self._cs_foot_ids.keys():
         #     tot_force[id] =     torch.sum(net_contact_forces[:, :, self._cs_foot_ids[id]], dim=2, keepdim=True)
         #     tot_mask[id] =      torch.any(torch.max(torch.norm(tot_force[id], dim=-1), dim=1)[0] > self.cfg.feet_termination_force, dim=1)
@@ -1027,25 +1016,25 @@ class GraceEnv(DirectRLEnv):
     # @track_time
     def _update_terrain_curriculum(self, env_ids):
         # Implement Terrain curriculum
-        if cnt==0:
+        if cnt == 0:
             # don't change on initial reset
             return
 
-        distance_to_goal_xy = torch.norm(self.pos_command_b[env_ids,:2], dim=1)
+        distance_to_goal_xy = torch.norm(self.pos_command_b[env_ids, :2], dim=1)
         distance_to_goal = torch.norm(self.pos_command_b[env_ids], dim=1)
 
         move_up = distance_to_goal <= 0.5
         move_down = (distance_to_goal > 1.) * ~move_up
 
-        if hasattr(self._terrain,"terrain_levels"):
+        if hasattr(self._terrain, "terrain_levels"):
             self._terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
 
             # Robots that solve the last level are sent to a random one
-            self._terrain.terrain_levels[env_ids] = torch.where(self._terrain.terrain_levels[env_ids] >=self._terrain.max_terrain_level,
-                                                                    torch.randint_like(self._terrain.terrain_levels[env_ids], self._terrain.max_terrain_level),
-                                                                    torch.clip(self._terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
+            self._terrain.terrain_levels[env_ids] = torch.where(self._terrain.terrain_levels[env_ids] >= self._terrain.max_terrain_level,
+                                                                torch.randint_like(self._terrain.terrain_levels[env_ids], self._terrain.max_terrain_level),
+                                                                torch.clip(self._terrain.terrain_levels[env_ids], 0))  # (the minumum level is zero)
 
-            self._terrain.env_origins[env_ids]    = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
+            self._terrain.env_origins[env_ids] = self._terrain.terrain_origins[self._terrain.terrain_levels[env_ids], self._terrain.terrain_types[env_ids]]
         # else:
         #     print("terreno piatto o senza attributo terrain_levels")
 
@@ -1075,9 +1064,9 @@ class GraceEnv(DirectRLEnv):
         joint_pos = self._robot.data.default_joint_pos[env_ids]
         joint_vel = self._robot.data.default_joint_vel[env_ids]
 
-        #muovo robot nel nuovo terreno in accordo curriculum
+        # muovo robot nel nuovo terreno in accordo curriculum
         default_root_state = self._robot.data.default_root_state[env_ids]
-        default_root_state[:, :3] += self._terrain.env_origins[env_ids]
+        # default_root_state[:, :3] += self._terrain.env_origins[env_ids]
 
         self._robot.write_root_pose_to_sim(default_root_state[:, :7], env_ids)
         self._robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
