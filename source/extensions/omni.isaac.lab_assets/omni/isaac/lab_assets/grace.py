@@ -102,7 +102,10 @@ import os
 # usd_path = os.getcwd() + "/usd/grace_fixed.usd"
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical.usd"
 # usd_path = os.getcwd() + "/usd/grace_xy_tendons.usd"
-usd_path = os.getcwd() + "/usd/grace_fake_spherical_center.usd"
+# usd_path = os.getcwd() + "/usd/grace_fake_spherical_center.usd"
+usd_path = os.getcwd() + "/usd/grace_fake_spherical_center_amosca_ball_half.usd"
+# usd_path = os.getcwd() + "/usd/grace_fake_spherical_center_shifted.usd"
+
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical_center_disk.usd"
 
 # usd_path = os.getcwd() + "/usd/grace_spherical.usd"

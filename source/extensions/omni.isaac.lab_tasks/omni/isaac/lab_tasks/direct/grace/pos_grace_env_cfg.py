@@ -68,7 +68,7 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     # env
     episode_length_s = 6.0
     decimation = 4
-    action_scale = 0.26720047936186053
+    action_scale = 0.3 #0.26720047936186053
     action_space = 12+4
     observation_space = 37
     state_space = 0
@@ -287,9 +287,12 @@ class PosGraceFlatEnvCfg(DirectRLEnvCfg):
     feet_termination_force          = 1500
     termination_reward_scale        = -200.
     theta_marg_sum_reward_scale     = 0.00036741392464462934 #0.01 -----------------------------------------------------
-    a_marg_reward_scale             = 0.0001
-    three_finger_reward_scale       = 0.
-    vacuum_action_rate_reward_scale = -0.01
+    a_marg_reward_scale             = 0.01
+    vacuum_action_rate_reward_scale = -0.001
+    adhesion_quality                = 0.01
+    climbing_progress               = 0.01
+    stability                       = 0.01
+    vacuum_efficiency               = 0.01
     show_flat_patches = False # da passare come args
     color_scheme = "height" #["height", "random", None]
 
