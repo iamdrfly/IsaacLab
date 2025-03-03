@@ -94,6 +94,14 @@ GRACE_SPHERICAL_CFG = DCMotorCfg(
 # /grace/base
 # /grace
 
+GRACE_FAKE_MOTOR_CFG = DCMotorCfg(
+    joint_names_expr=[".*"],
+    saturation_effort=1.0,
+    effort_limit=1.,
+    velocity_limit=1.,
+    stiffness={".*": 0.5}, #0.5 gira bene
+    damping={".*": .0},
+)
 
 ##
 # Configuration - Articulation.
@@ -103,7 +111,7 @@ import os
 # usd_path = os.getcwd() + "/usd/grace_fixed.usd"
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical.usd"
 # usd_path = os.getcwd() + "/usd/grace_xy_tendons.usd"
-usd_path = os.getcwd() + "/usd/grace_HARD.usd"
+usd_path = os.getcwd() + "/usd/grace_fixedjoints.usd"
 # usd_path = os.getcwd() + "/usd/grace_fake_spherical_center_disk.usd"
 
 # usd_path = os.getcwd() + "/usd/grace_spherical.usd"
@@ -127,7 +135,7 @@ GRACE_CFG = ArticulationCfg(
         # collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.02, rest_offset=0.0),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 1.0),
+        pos=(0., -0.2, 1.0),
         rot=(0.0, 0.0, -0.71, 0.71),
         # joint_pos={
         #     "LF_HAA": -0.7854,  #
@@ -146,26 +154,27 @@ GRACE_CFG = ArticulationCfg(
         #     "RR_HFE": -0.7854,  #-0.7854
         #     "RR_KFE":  0,       #0
         # },
-        joint_pos={
-            "LF_HAA": -0.7854,  #
-            "LF_HFE": -1.5708,  #
-            "LF_KFE": 1.5708,  #
-
-            "LR_HAA": 0.7854,  #
-            "LR_HFE": +1.5708,  #
-            "LR_KFE": -1.5708,  #
-
-            "RF_HAA": 0.7854,  # 0.7854
-            "RF_HFE": -1.5708,  # 1.57
-            "RF_KFE": 1.5708,  # 1.57
-
-            "RR_HAA": -0.7854,  # -0.7854
-            "RR_HFE": +1.5708,  # -0.7854
-            "RR_KFE": -1.5708,  # 0
-        },
+        # joint_pos={
+        #     "LF_HAA": -0.7854,  #
+        #     "LF_HFE": -1.5708,  #
+        #     "LF_KFE": 1.5708,  #
+        #
+        #     "LR_HAA": 0.7854,  #
+        #     "LR_HFE": +1.5708,  #
+        #     "LR_KFE": -1.5708,  #
+        #
+        #     "RF_HAA": 0.7854,  # 0.7854
+        #     "RF_HFE": -1.5708,  # 1.57
+        #     "RF_KFE": 1.5708,  # 1.57
+        #
+        #     "RR_HAA": -0.7854,  # -0.7854
+        #     "RR_HFE": +1.5708,  # -0.7854
+        #     "RR_KFE": -1.5708,  # 0
+        # },
     ),
-    actuators={"HAA": GRACE_HAA_CFG, "HFE": GRACE_HFE_CFG, "KFE": GRACE_KFE_CFG},  # "sphericals": GRACE_SPHERICAL_CFG
+    # actuators={"HAA": GRACE_HAA_CFG, "HFE": GRACE_HFE_CFG, "KFE": GRACE_KFE_CFG},  # "sphericals": GRACE_SPHERICAL_CFG
     # actuators={"legs": GRACE_LSTM_ACTUATOR_CFG},
+    actuators={"fake": GRACE_FAKE_MOTOR_CFG},
     soft_joint_pos_limit_factor=0.95,
 )
 

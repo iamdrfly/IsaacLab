@@ -178,7 +178,7 @@ class GraceEnv(DirectRLEnv):
         self._min_finger_contacts = 3
 
         self._undesired_contact_body_ids, _ = [], self._contact_sensor.find_bodies([".*HFE", ".*KFE"])
-        self._all_joints, _ = self._robot.find_joints(['^(?!.*(_FOOT|ankle).*).*$'])
+        self._all_joints, _ = self._robot.find_joints(['.*'])
 
         self.pos_command_w = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_w = torch.zeros(self.num_envs, device=self.device)
@@ -231,9 +231,9 @@ class GraceEnv(DirectRLEnv):
         self.fake_a_gilim_dot_versor_ngab_w = {}
         self.a_gi_dot_versor_ngab_w = {}
 
-        for act in self._robot.actuators.keys():
-            self.joint_vel_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
-            self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
+        # for act in self._robot.actuators.keys():
+        #     self.joint_vel_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].velocity_limit
+        #     self.joint_effort_limit[:, self._robot.actuators[act]._joint_indices] = self._robot.actuators[act].effort_limit
 
         # definizione degli attributi per le vacuum force
         self._num_bodies_vacuum = len(self._cs_vacuum_ids)
@@ -579,10 +579,16 @@ class GraceEnv(DirectRLEnv):
 
     # @track_time
     def _apply_action(self):
+        pass
         # se non usi vacuum
         # self._robot.set_joint_position_target(self._processed_actions, self._all_joints)
         # se usi vacuum
         # self._robot.set_joint_position_target(self._processed_actions_pos, self._all_joints)
+        # if self._sim_step_counter == 1:
+        #     base_force = self._forces_vacuum[:, 0:1, :]
+        #     base_torque = self._torques_vacuum[:, 0:1, :] #zeros
+        #     self._robot.set_external_force_and_torque(base_force, base_torque, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_base_id)
+
         self._robot.set_external_force_and_torque(self._forces_vacuum, self._torques_vacuum, env_ids=torch.arange(self.num_envs, device=self.device), body_ids=self._robot_vacuum_ids)
         # applico forza su piede se a contatto  GUARDA METODO IN ARTICULATION root_physx_view
 
@@ -622,8 +628,8 @@ class GraceEnv(DirectRLEnv):
                 self._robot.data.root_lin_vel_b,  # 3
                 self._robot.data.root_ang_vel_b,  # 3
                 self._robot.data.projected_gravity_b,  # 3
-                self._robot.data.joint_pos[:, self._all_joints],  # 12
-                self._robot.data.joint_vel[:, self._all_joints],  # 12
+                # self._robot.data.joint_pos[:, self._all_joints],  # 12
+                # self._robot.data.joint_vel[:, self._all_joints],  # 12
                 self.pose_command(),  # 4
                 self._remaining_time(),  # 1
                 height_data,  # 187 -->196
@@ -957,6 +963,26 @@ class GraceEnv(DirectRLEnv):
         # Squared Exponential Kernel: exp(-||x||^2 / (2 * std^2))
         squared_exponential = -torch.exp(-(norm_airtime ** 2) / (2 * std ** 2))
 
+        if n_finger_in_contact >= 9:
+            # all vacuum active
+            AA_cs_force = self._contact_sensor.data.net_forces_w[:, self._cs_vacuum_ids + self._cs_foot_ids_center_list, :].norm(dim=2) # tutti e 16 (centri inclusi)
+
+            AA_tot_force = AA_cs_force.sum(dim=1).item()
+
+            AA_vacuum_force = self._forces_vacuum.abs().norm().sum().item()
+
+            AA_tot_force_div3 = AA_tot_force / 3
+
+            AA_forces_foot = {}
+            AA_force_sum_foot = {}
+            AA_force_on_feet = 350 #compare with AA_force_sum_foot
+            for key in self._cs_foot_ids.keys():
+                all_indices_foot = self._cs_foot_ids[key] + self._cs_foot_ids_center[key]
+                AA_forces_foot[key] = self._contact_sensor.data.net_forces_w[:, all_indices_foot, :].norm(dim=2).tolist()
+                AA_force_sum_foot[key] = self._contact_sensor.data.net_forces_w[:, all_indices_foot, :].norm(dim=2).sum(dim=1).item()
+
+            pippo = 1
+
         rewards = {
             "position_tracking_xy": position_tracking_mapped * self.cfg.position_tracking_reward_scale * self.step_dt,
             "heading_tracking_xy": heading_tracking_mapped * self.cfg.heading_tracking_reward_scale * self.step_dt,
@@ -1042,8 +1068,8 @@ class GraceEnv(DirectRLEnv):
     def _reset_idx(self, env_ids: torch.Tensor | None):
         if env_ids is None or len(env_ids) == self.num_envs:
             env_ids = self._robot._ALL_INDICES
-        self._robot.reset(env_ids)
-        super()._reset_idx(env_ids)
+        # self._robot.reset(env_ids)
+        # super()._reset_idx(env_ids)
         if len(env_ids) == self.num_envs:
             # Spread out the resets to avoid spikes in training when many environments reset at a similar time
             self.episode_length_buf[:] = torch.randint_like(self.episode_length_buf, high=int(self.max_episode_length))
