@@ -93,30 +93,36 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     hyper_file = PATH_WANDB_FOLDER + "/hyperisac.txt"
     hyperparams = load_hyperparameters(hyper_file)
 
+    for key, value in hyperparams.items():
+        if hasattr(env_cfg, key):
+            setattr(env_cfg, key, value)
+        else:
+            print("Warning: skipping hyperparameter key '{}'. ".format(key))
+
     # env_cfg.position_tracking_reward_scale  = hyperparams["position_tracking_reward_scale"]
     # env_cfg.heading_tracking_reward_scale   = hyperparams["heading_tracking_reward_scale"]
-    env_cfg.joint_vel_reward_scale          = hyperparams["joint_vel_reward_scale"]         
-    env_cfg.joint_torque_reward_scale       = hyperparams["joint_torque_reward_scale"]      
-    env_cfg.joint_vel_limit_reward_scale    = hyperparams["joint_vel_limit_reward_scale"]    
-    env_cfg.joint_torque_limit_reward_scale = hyperparams["joint_torque_limit_reward_scale"] 
-    env_cfg.base_acc_reward_scale           = hyperparams["base_acc_reward_scale"]           
-    # env_cfg.base_lin_acc_weight             = hyperparams["base_lin_acc_weight"]
-    # env_cfg.base_ang_acc_weight             = hyperparams["base_ang_acc_weight"]
-    env_cfg.feet_acc_reward_scale           = hyperparams["feet_acc_reward_scale"]           
-    # env_cfg.action_rate_reward_scale        = hyperparas.action_rate_reward_scale
-    env_cfg.max_feet_contact_force          = hyperparams["max_feet_contact_force"]         
-    env_cfg.feet_contact_force_reward_scale = hyperparams["feet_contact_force_reward_scale"] 
-    env_cfg.wait_time                       = hyperparams["wait_time"]                       
-    env_cfg.dont_wait_reward_scale          = hyperparams["dont_wait_reward_scale"]          
-    env_cfg.move_in_direction_reward_scale  = hyperparams["move_in_direction_reward_scale"]  
-    # env_cfg.stand_min_dist                  = hyperparams["stand_min_dist"]
-    # env_cfg.stand_min_ang                   = hyperparams["stand_min_ang"]
-    # env_cfg.stand_at_target_reward_scale    = hyperparams["stand_at_target_reward_scale"]
-    # env_cfg.undesired_contact_reward_scale  = hyperparams["undesired_contact_reward_scale"]
-    env_cfg.stumble_reward_scale            = hyperparams["stumble_reward_scale"]            
-    env_cfg.feet_termination_force          = hyperparams["feet_termination_force"]          
-    env_cfg.termination_reward_scale        = hyperparams["termination_reward_scale"]
-    env_cfg.three_finger_reward_scale       = hyperparams["three_finger_reward_scale"]
+    # env_cfg.joint_vel_reward_scale          = hyperparams["joint_vel_reward_scale"]
+    # env_cfg.joint_torque_reward_scale       = hyperparams["joint_torque_reward_scale"]
+    # env_cfg.joint_vel_limit_reward_scale    = hyperparams["joint_vel_limit_reward_scale"]
+    # env_cfg.joint_torque_limit_reward_scale = hyperparams["joint_torque_limit_reward_scale"]
+    # env_cfg.base_acc_reward_scale           = hyperparams["base_acc_reward_scale"]
+    # # env_cfg.base_lin_acc_weight             = hyperparams["base_lin_acc_weight"]
+    # # env_cfg.base_ang_acc_weight             = hyperparams["base_ang_acc_weight"]
+    # env_cfg.feet_acc_reward_scale           = hyperparams["feet_acc_reward_scale"]
+    # # env_cfg.action_rate_reward_scale        = hyperparas.action_rate_reward_scale
+    # env_cfg.max_feet_contact_force          = hyperparams["max_feet_contact_force"]
+    # env_cfg.feet_contact_force_reward_scale = hyperparams["feet_contact_force_reward_scale"]
+    # env_cfg.wait_time                       = hyperparams["wait_time"]
+    # env_cfg.dont_wait_reward_scale          = hyperparams["dont_wait_reward_scale"]
+    # env_cfg.move_in_direction_reward_scale  = hyperparams["move_in_direction_reward_scale"]
+    # # env_cfg.stand_min_dist                  = hyperparams["stand_min_dist"]
+    # # env_cfg.stand_min_ang                   = hyperparams["stand_min_ang"]
+    # # env_cfg.stand_at_target_reward_scale    = hyperparams["stand_at_target_reward_scale"]
+    # # env_cfg.undesired_contact_reward_scale  = hyperparams["undesired_contact_reward_scale"]
+    # env_cfg.stumble_reward_scale            = hyperparams["stumble_reward_scale"]
+    # env_cfg.feet_termination_force          = hyperparams["feet_termination_force"]
+    # env_cfg.termination_reward_scale        = hyperparams["termination_reward_scale"]
+    # env_cfg.three_finger_reward_scale       = hyperparams["three_finger_reward_scale"]
     # env_cfg.robot.actuators["HAA"].damping[".*"] = hyperparams["haa_damping"]
     # env_cfg.robot.actuators["HFE"].damping[".*"] = hyperparams["hfe_damping"]
     # env_cfg.robot.actuators["KFE"].damping[".*"] = hyperparams["kfe_damping"]

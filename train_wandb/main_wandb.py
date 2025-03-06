@@ -82,43 +82,47 @@ def train():
     # Avvio della run di WandB
     run = wandb.init()
 
+    params = {}
     # Estrazione degli iperparametri
     config = run.config
-    params = {
-        "theta_marg_sum_reward_scale":   config.theta_marg_sum_reward_scale,
-        "action_scale": config.action_scale,
-        # "position_tracking_reward_scale": config.position_tracking_reward_scale,
-        # "heading_tracking_reward_scale": config.heading_tracking_reward_scale,
-        # "joint_vel_reward_scale": config.joint_vel_reward_scale,
-        # "joint_torque_reward_scale": config.joint_torque_reward_scale,
-        # "joint_vel_limit_reward_scale": config.joint_vel_limit_reward_scale,
-        # "joint_torque_limit_reward_scale": config.joint_torque_limit_reward_scale,
-        # "base_acc_reward_scale": config.base_acc_reward_scale,
-        # "base_lin_acc_weight": config.base_lin_acc_weight,
-        # "base_ang_acc_weight": config.base_ang_acc_weight,
-        # "feet_acc_reward_scale": config.feet_acc_reward_scale,
-        # "action_rate_reward_scale":{"min": -0.01*10, "max": -0.01/10.},
-        # "max_feet_contact_force": config.max_feet_contact_force,
-        # "feet_contact_force_reward_scale": config.feet_contact_force_reward_scale,
-        # "wait_time": config.wait_time,
-        # "dont_wait_reward_scale": config.dont_wait_reward_scale,
-        # "move_in_direction_reward_scale": config.move_in_direction_reward_scale,
-        # "stand_min_dist": config.stand_min_dist,
-        # "stand_min_ang": config.stand_min_ang,
-        # "stand_at_target_reward_scale": config.stand_at_target_reward_scale,
-        # "undesired_contact_reward_scale": config.undesired_contact_reward_scale,
-        # "stumble_reward_scale": config.stumble_reward_scale,
-        # "feet_termination_force": config.feet_termination_force,
-        # "termination_reward_scale": config.termination_reward_scale,
-        # "three_finger_reward_scale": config.three_finger_reward_scale,
-        # "haa_stiffness":config.haa_kp,
-        # "haa_damping":config.haa_kd,
-        # "hfe_stiffness":config.hfe_kp,
-        # "hfe_damping":config.hfe_kd,
-        # "kfe_stiffness":config.kfe_kp,
-        # "kfe_damping":config.kfe_kd,
+    for key, value in config.items():
+        params[key] = value
 
-    }
+    # params = {
+    #     "theta_marg_sum_reward_scale":   config.theta_marg_sum_reward_scale,
+    #     "action_scale": config.action_scale,
+    #     # "position_tracking_reward_scale": config.position_tracking_reward_scale,
+    #     # "heading_tracking_reward_scale": config.heading_tracking_reward_scale,
+    #     # "joint_vel_reward_scale": config.joint_vel_reward_scale,
+    #     # "joint_torque_reward_scale": config.joint_torque_reward_scale,
+    #     # "joint_vel_limit_reward_scale": config.joint_vel_limit_reward_scale,
+    #     # "joint_torque_limit_reward_scale": config.joint_torque_limit_reward_scale,
+    #     # "base_acc_reward_scale": config.base_acc_reward_scale,
+    #     # "base_lin_acc_weight": config.base_lin_acc_weight,
+    #     # "base_ang_acc_weight": config.base_ang_acc_weight,
+    #     # "feet_acc_reward_scale": config.feet_acc_reward_scale,
+    #     # "action_rate_reward_scale":{"min": -0.01*10, "max": -0.01/10.},
+    #     # "max_feet_contact_force": config.max_feet_contact_force,
+    #     # "feet_contact_force_reward_scale": config.feet_contact_force_reward_scale,
+    #     # "wait_time": config.wait_time,
+    #     # "dont_wait_reward_scale": config.dont_wait_reward_scale,
+    #     # "move_in_direction_reward_scale": config.move_in_direction_reward_scale,
+    #     # "stand_min_dist": config.stand_min_dist,
+    #     # "stand_min_ang": config.stand_min_ang,
+    #     # "stand_at_target_reward_scale": config.stand_at_target_reward_scale,
+    #     # "undesired_contact_reward_scale": config.undesired_contact_reward_scale,
+    #     # "stumble_reward_scale": config.stumble_reward_scale,
+    #     # "feet_termination_force": config.feet_termination_force,
+    #     # "termination_reward_scale": config.termination_reward_scale,
+    #     # "three_finger_reward_scale": config.three_finger_reward_scale,
+    #     # "haa_stiffness":config.haa_kp,
+    #     # "haa_damping":config.haa_kd,
+    #     # "hfe_stiffness":config.hfe_kp,
+    #     # "hfe_damping":config.hfe_kd,
+    #     # "kfe_stiffness":config.kfe_kp,
+    #     # "kfe_damping":config.kfe_kd,
+    #
+    # }
     # Scrive i parametri in hyperisac.txt
     hyper_file = PATH_WANDB_FOLDER + "/hyperisac.txt"
     with open(hyper_file, "w") as f:
@@ -164,8 +168,8 @@ sweep_config = {
         # "joint_torque_reward_scale": {"min": -0.00001, "max": -0.00001/20.},
         # "joint_vel_limit_reward_scale": {"min": -1., "max": -1./10.},
         # "joint_torque_limit_reward_scale": {"min": -0.2, "max": -0.2/10.},
-        # "base_acc_reward_scale":{"min": -0.001, "max": -0.001/10.},
-        # "base_lin_acc_weight":{"min": 1./10, "max": 1*10.},
+        "base_acc_reward_scale":{"min": -0.001, "max": -0.001/10.},
+        "base_lin_acc_weight":{"min": 1./10, "max": 1*10.},
         # "base_ang_acc_weight":{"min": 0.02/10, "max": 0.02*10.},
         # "feet_acc_reward_scale":{"min": -0.002, "max": -0.002/1000.},
         # "action_rate_reward_scale":{"min": -0.01*10, "max": -0.01/10.},
@@ -184,7 +188,7 @@ sweep_config = {
         # "three_finger_reward_scale":{"min": 0.001, "max": 5.},
         # "haa_kp":{"min": 5., "max": 80.},
         # "haa_kd":{"min": 0., "max": 10.},
-        # "hfe_kp":{"min": 5., "max": 80.},
+        "hfe_kp":{"min": 5., "max": 80.},
         # "hfe_kd":{"min": 0., "max": 10.},
         # "kfe_kp":{"min": 5., "max": 80.},
         # "kfe_kd":{"min": 0., "max": 10.},
@@ -192,7 +196,7 @@ sweep_config = {
 }
 
 # Definiamo lo sweep
-sweep_id = wandb.sweep(sweep_config, project="isaaclab-grace-only-action-scale-curriculum")
+sweep_id = wandb.sweep(sweep_config, project="elia-test")
 
 # Avvio dello sweep
-wandb.agent(sweep_id, function=train, count=50)
+wandb.agent(sweep_id, function=train, count=1)
