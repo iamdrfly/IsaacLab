@@ -117,6 +117,10 @@ class GraceEnv(DirectRLEnv):
                 "climbing_progress",
                 "stability",
                 "vacuum_efficiency",
+                "stability_core",
+                "vacuum_quality",
+                "adaptive_motion",
+                "joint_limit_awareness",
 
         ]
         }
@@ -459,8 +463,7 @@ class GraceEnv(DirectRLEnv):
         self._processed_action_vacuum = self.cfg.action_scale * self._action_vacuum
         self._processed_action_vacuum = torch.abs(self._processed_action_vacuum )
         self._processed_action_vacuum = torch.clamp(self._processed_action_vacuum,min=0.,max=1.)
-        self._processed_action_vacuum = torch.where(self._processed_action_vacuum >0.5, 1., 0.)*350/3
-        # self._processed_action_vacuum = torch.ones_like(self._processed_action_vacuum)*350/3
+        self._processed_action_vacuum = torch.where(self._processed_action_vacuum <0.5, 0., 1.)*350/3
         self._processed_action_vacuums = self._processed_action_vacuum.repeat_interleave(3,1)  # ripeto 3 volte (3 dita) nella dim 1
 
         # self._processed_action_vacuum = torch.where(self._processed_action_vacuum<3/5, 0., self._processed_action_vacuum) # voltage
@@ -741,7 +744,73 @@ class GraceEnv(DirectRLEnv):
         # self.force_w[name] = forces_foot_w.sum(dim=1)
         self.force_w[name] = Fj_w.sum(dim=1)
 
+    def quat_to_matrix(self, quaternions):
+        # Assumiamo quaternioni di forma (n_envs, 4)
+        w, x, y, z = quaternions[:, 0], quaternions[:, 1], quaternions[:, 2], quaternions[:, 3]
 
+        # Calcoliamo i termini comuni
+        xx = x * x
+        yy = y * y
+        zz = z * z
+        wx = w * x
+        wy = w * y
+        wz = w * z
+        xy = x * y
+        xz = x * z
+        yz = y * z
+
+        # Matrice di rotazione in formato batch (n_envs, 3, 3)
+        rot_matrix = torch.stack([
+            1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy),
+            2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx),
+            2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy)
+        ], dim=-1).view(-1, 3, 3)
+
+        return rot_matrix
+
+    def _estimate_terrain_normal(self):
+        # 1. Ottieni posizioni dei piedi e forze di contatto [n_envs, num_feet, 3]
+        foot_positions = self._robot.data.body_pos_w[:, self._robot_foot_ids_center_list]
+        contact_forces = self._contact_sensor.data.net_forces_w[:, self._cs_foot_ids_center_list]
+
+        # 2. Calcola punti validi (forza > 1N) [n_envs, num_feet]
+        valid_mask = torch.norm(contact_forces, dim=-1) > 1.0
+
+        # 3. Centra le posizioni per ogni ambiente
+        foot_pos_centered = foot_positions - foot_positions.mean(dim=1, keepdim=True)
+
+        # 4. Calcola matrice di covarianza per ogni ambiente [n_envs, 3, 3]
+        cov_matrix = torch.matmul(
+            foot_pos_centered.transpose(1, 2),  # [n_envs, 3, num_feet]
+            foot_pos_centered * valid_mask.unsqueeze(-1)  # [n_envs, num_feet, 3]
+        ) / (valid_mask.sum(dim=1, keepdim=True) + 1e-6).unsqueeze(-1)
+
+        # 5. Calcola autovettori della covarianza
+        _, eigenvectors = torch.linalg.eigh(cov_matrix)
+
+        # 6. Estrai la normale (autovettore con autovalore più piccolo)
+        batch_normals = eigenvectors[:, :, 0]  # [n_envs, 3]
+
+        # 7. Normalizza le normali
+        batch_normals = torch.nn.functional.normalize(batch_normals, dim=-1)
+
+        # 8. Fallback all'orientamento della base
+        quat_matrix = self.quat_to_matrix(self._robot.data.root_quat_w)  # [n_envs, 3, 3]
+        fallback_normals = quat_matrix[:, :, 2]  # [n_envs, 3]
+
+        # 9. Applica maschera di validità
+        valid_counts = valid_mask.sum(dim=1)
+        final_normals = torch.where(
+            (valid_counts >= 3).unsqueeze(-1),
+            batch_normals,
+            fallback_normals
+        )
+
+        # 10. Calcola terreno slope
+        gravity_proj = self._robot.data.projected_gravity_b[:, 2]  # [n_envs]
+        terrain_slope = 0.5 * (1.0 - gravity_proj) + 0.5 * (1.0 - final_normals[:, 2])
+
+        return 1.0 + terrain_slope
 
     # @track_time
     def _theta_marg_and_a_marg(self):
@@ -846,6 +915,8 @@ class GraceEnv(DirectRLEnv):
         # self._amarg         = torch.sum(dim=0).to(device=self.device)
         # #IN ACCORDO ARTICOLO VALSECCHI
         self._sumthetamarg  = theta_marg_stack.sum(dim=0).to(device=self.device)
+
+        self.terrain_factor = self._estimate_terrain_normal()
 
         # mask_positive_theta_amarg = torch.logical_and(self._amarg>0, self._sumthetamarg>0)
         # _good_vacuum_ = self._good_vacuum * mask_positive_theta_amarg
@@ -976,17 +1047,66 @@ class GraceEnv(DirectRLEnv):
         # # Penalità orientamento basata sull'angolo tra verticale e normale corpo
         # body_orientation_penalty = 1.0 - torch.dot(up_vector, body_z_axis)
         #
-        adhesion_quality = 2.0 * torch.sum(mask_good_feet_contact_no_slip_vacuum_on, dim=1) - 1.5 * torch.sum(mask_good_feet_contact_slip_no_vacuum, dim=1) - 3.0 * torch.sum(mask_bad_feet_contact_slip, dim=1) - 0.5 * torch.sum(mask_bad_feet_contact, dim=1)
-        climbing_progress = 4.0 * move_in_direction + 1.5 * torch.any(foot_contact_new_position, dim=1)
+        mask_moving = torch.logical_and(torch.where(torch.norm(self._robot.data.root_lin_vel_b, dim=-1) < 0.1, 0., 1.), move_in_direction)
+
+
+        adhesion_quality = (0.66 * torch.sum(mask_good_feet_contact_no_slip_vacuum_on, dim=1) - 0.5 * torch.sum(mask_good_feet_contact_slip_no_vacuum, dim=1) - 1. * torch.sum(mask_bad_feet_contact_slip, dim=1) - 0.17 * torch.sum(mask_bad_feet_contact, dim=1) )* mask_moving
+        climbing_progress = (1.0 * mask_moving + 0.375 * torch.any(foot_contact_new_position, dim=1) )
         # stability = -0.8 * torch.relu(2 - torch.sum(mask_good_feet_contact, dim=1)) -1.2 * joint_torques * 0.001 - 2.0 * (body_orientation_penalty)
-        stability = -0.8 * torch.relu(2 - torch.sum(mask_good_feet_contact, dim=1)) - 1.2 * joint_torques * 0.001
-        vacuum_efficiency = -0.3 * torch.sum(mask_no_contact_vacuum_on, dim=1) + 0.7 * vacuum_switches_successful
+        stability = (-0.66 * torch.relu(2 - torch.sum(mask_good_feet_contact, dim=1)) - 1 * joint_torques * 0.001) * mask_moving
+        vacuum_efficiency = (-0.43 * torch.sum(mask_no_contact_vacuum_on, dim=1) + 1. * vacuum_switches_successful) * mask_moving
         self._old_mask_foot_in_contact = mask_foot_in_contact
 
-        all_vacuum = adhesion_quality + climbing_progress + stability + vacuum_efficiency
+        # =======================================================================
+        # 1. Core Stability Metrics (Modificati)
+        # =======================================================================
+        stability_core = (
+                0.7 * self._amarg * self.cfg.a_marg_reward_scale +
+                0.3 * torch.relu(self._sumthetamarg) * self.cfg.theta_marg_sum_reward_scale
+        )
+
+        # =======================================================================
+        # 2. Vacuum Quality Metrics (Ricalibrati)
+        # =======================================================================
+        vacuum_quality = (
+                             # Premi attivazioni corrette (contatto + dentro i limiti giunto)
+                                 1.2 * torch.sum(mask_good_feet_contact_no_slip_vacuum_on, dim=1) -
+                                 # Penalizza attivazioni senza contatto o fuori limite giunto
+                                 0.8 * torch.sum(mask_no_contact_vacuum_on, dim=1) -
+                                 0.5 * torch.sum(mask_bad_feet_contact_slip, dim=1)
+                         ) * self.cfg.vacuum_efficiency
+
+        # =======================================================================
+        # 3. Adaptive Motion Rewards (Nuova logica)
+        # =======================================================================
+        adaptive_motion = (
+            # Base reward per movimento direzionale
+                self.cfg.move_in_direction_reward_scale * move_in_direction *
+                # Adatta l'intensità in base alla stabilità corrente
+                torch.sigmoid(2.0 * self._amarg)
+        )
+
+        # =======================================================================
+        # 4. Joint Limit Awareness (Nuova penalità)
+        # =======================================================================
+        joint_limit_penalty = (
+                torch.sum(torch.abs(self._robot.data.joint_pos[:, self._all_joints] /
+                                    self.joint_vel_limit) > 0.9, dim=1) *
+                self.cfg.joint_torque_limit_reward_scale
+        )
+
+        # =======================================================================
+        # 5. Terrain Difficulty Scaling (Nuovo fattore)
+        # =======================================================================
+        # Calcolo della difficoltà del terreno basata sull'orientamento
+        terrain_factor = self.terrain_factor
+
+        stability_core = (0.7*self._amarg + 0.3*torch.relu(self._sumthetamarg)) * self.cfg.stability_core_scale * terrain_factor
+        vacuum_quality = ( 1.2 * torch.sum(mask_good_feet_contact_no_slip_vacuum_on, dim=1) - 0.8 * torch.sum(mask_no_contact_vacuum_on, dim=1) - 0.5 * torch.sum(mask_bad_feet_contact_slip, dim=1) ) * self.cfg.vacuum_quality_scale * terrain_factor
 
         rewards = {
             "position_tracking_xy":     position_tracking_mapped    * self.cfg.position_tracking_reward_scale   * self.step_dt,
+            # "position_tracking_xy":     position_tracking_mapped    * self.cfg.position_tracking_reward_scale / terrain_factor * self.step_dt,
             "heading_tracking_xy":      heading_tracking_mapped     * self.cfg.heading_tracking_reward_scale    * self.step_dt,
             "dof_vel_l2":               joint_vel                   * self.cfg.joint_vel_reward_scale           * self.step_dt,
             "dof_torques_l2":           joint_torques               * self.cfg.joint_torque_reward_scale        * self.step_dt,
@@ -1009,6 +1129,11 @@ class GraceEnv(DirectRLEnv):
             "climbing_progress":        climbing_progress           * self.cfg.climbing_progress                * self.step_dt,
             "stability":                stability                   * self.cfg.stability                        * self.step_dt,
             "vacuum_efficiency":        vacuum_efficiency           * self.cfg.vacuum_efficiency                * self.step_dt,
+            # "stability_core":           stability_core              * self.step_dt,
+            "stability_core":           stability_core * self.step_dt,
+            "vacuum_quality":           vacuum_quality * self.step_dt,
+            "adaptive_motion":          adaptive_motion             * self.step_dt,
+            "joint_limit_awareness":    joint_limit_penalty         * self.step_dt,
 
 
         }
